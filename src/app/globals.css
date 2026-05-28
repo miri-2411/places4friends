@@ -1,0 +1,58 @@
+@import "tailwindcss";
+@import "mapbox-gl/dist/mapbox-gl.css";
+
+:root {
+  --background: #ffffff;
+  --foreground: #0f172a; /* slate-900 */
+}
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  
+  /* Nature/forest green brand colors */
+  --color-brand-green-50: #f4f9f4;
+  --color-brand-green-100: #e7f3e7;
+  --color-brand-green-200: #c2e2c2;
+  --color-brand-green-300: #9dd19d;
+  --color-brand-green-400: #54ae54;
+  --color-brand-green-500: #2a7e2a; /* Natural forest tree green */
+  --color-brand-green-600: #226622;
+  --color-brand-green-700: #1b521b;
+  --color-brand-green-800: #153e15;
+  --color-brand-green-900: #0e2b0e; /* Darker nature/forest green */
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom premium styling utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Smooth transitions for mobile routing feel */
+.page-transition {
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
