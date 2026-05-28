@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Map, { Marker, Popup } from "react-map-gl/mapbox";
 import { Search, Users, MapPin, Sparkles, Layers, Loader2 } from "lucide-react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 interface UserProfile {
@@ -350,6 +351,32 @@ export default function MapViewContent() {
           )}
         </Map>
       </div>
+
+      {/* Floating Login/Register Prompt Modal at the bottom when logged out */}
+      {!isLoading && !user && (
+        <div className="absolute bottom-20 left-4 right-4 z-20 bg-white/95 border border-slate-150 p-5 rounded-2xl shadow-2xl backdrop-blur-md flex flex-col gap-3">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">Entdecke Orte mit deinen Freunden</h3>
+            <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+              Melde dich an oder registriere dich, um die Lieblingsorte deiner Freunde auf der interaktiven Karte zu sehen.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Link
+              href="/login"
+              className="flex-1 text-center py-2.5 rounded-xl bg-brand-green-700 hover:bg-brand-green-800 text-xs font-bold text-white transition-all shadow-sm shadow-brand-green-700/10 active:scale-[0.98]"
+            >
+              Anmelden
+            </Link>
+            <Link
+              href="/register"
+              className="flex-1 text-center py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 bg-white transition-all shadow-sm active:scale-[0.98]"
+            >
+              Registrieren
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -52,7 +52,7 @@ export default function RecommendView() {
     setFeedback(null);
     setIsSearching(true);
 
-    let activeCoords: { lat: number; lng: number } | null = null;
+    let activeCoords: any = null;
 
     const params = new URLSearchParams();
     if (searchQuery.trim()) {
