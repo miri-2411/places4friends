@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { Settings, Sparkles } from "lucide-react";
+import { Settings, Sparkles, LogOut } from "lucide-react";
+import { signout } from "@/app/login/actions";
 
 interface User {
   id: string;
@@ -112,9 +113,12 @@ export default function ProfileView({ user }: { user?: User }) {
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-slate-100 bg-white px-4">
         <h1 className="text-lg font-bold text-slate-900">Mein Profil</h1>
         <div className="flex items-center gap-2">
-          <button onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login'; }} className="flex h-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 active:scale-95 transition-all px-3">
-            Logout
-          </button>
+          <form action={signout}>
+            <button type="submit" className="flex h-8 items-center justify-center gap-1.5 rounded-lg text-slate-500 hover:bg-slate-50 active:scale-95 transition-all px-3 cursor-pointer">
+              <LogOut className="h-4 w-4" />
+              <span className="text-xs font-medium">Abmelden</span>
+            </button>
+          </form>
           <button className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 active:scale-95 transition-all">
             <Settings className="h-5 w-5" />
           </button>

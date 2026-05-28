@@ -1,16 +1,37 @@
 import ProfileView from "@/components/ProfileView";
+import AuthPrompt from "@/components/AuthPrompt";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function ProfilePage() {
-  try {
-    const base =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${process.env.PORT ?? 3000}`);
-    const url = new URL('/api/auth/me', base).toString();
-    const res = await fetch(url, { cache: 'no-store' });
-    const json = await res.json();
-    const user = json?.user ?? null;
-    return <ProfileView user={user} />;
-  } catch (err) {
-    return <ProfileView user={null} />;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return (
+      <div className="flex flex-col min-h-screen bg-slate-50/50 pb-20 font-sans">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-center border-b border-slate-100 bg-white px-4">
+          <h1 className="text-lg font-bold text-slate-900">Mein Profil</h1>
+        </header>
+        <AuthPrompt context="profile" />
+      </div>
+    );
   }
+
+  // Fetch profile data
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("username, full_name")
+    .eq("id", user.id)
+    .single();
+
+  const userData = {
+    id: user.id,
+    email: user.email ?? "",
+    name: profile?.full_name ?? user.user_metadata?.full_name ?? null,
+    username: profile?.username ?? user.user_metadata?.username ?? null,
+  };
+
+  return <ProfileView user={userData} />;
 }
