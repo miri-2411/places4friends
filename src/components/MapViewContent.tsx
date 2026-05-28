@@ -24,6 +24,7 @@ interface Place {
   longitude: number;
   isMustSee: boolean;
   review: string;
+  categories: string[];
 }
 
 const COLORS = [
@@ -160,7 +161,7 @@ export default function MapViewContent() {
         const allowedUserIds = [authUser.id, ...loadedFriends.map((f) => f.id)];
         const { data: activities } = await supabase
           .from("activities")
-          .select("id, user_id, place_id, place_name, place_address, latitude, longitude, is_superlike, description")
+          .select("id, user_id, place_id, place_name, place_address, latitude, longitude, is_superlike, description, categories")
           .in("user_id", allowedUserIds);
 
         const loadedPlaces = (activities || [])
@@ -182,6 +183,7 @@ export default function MapViewContent() {
               longitude: act.longitude as number,
               isMustSee: act.is_superlike,
               review: act.description || "",
+              categories: Array.isArray(act.categories) ? act.categories : [],
             };
           });
 
@@ -346,6 +348,19 @@ export default function MapViewContent() {
                 <p className="mt-2 text-xs text-slate-600 leading-relaxed">
                   {selectedPlace.review}
                 </p>
+
+                {selectedPlace.categories.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {selectedPlace.categories.map((category) => (
+                      <span
+                        key={category}
+                        className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] font-semibold text-slate-600"
+                      >
+                        {category}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </Popup>
           )}

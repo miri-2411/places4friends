@@ -36,7 +36,7 @@ export default async function ProfilePage() {
   // Fetch activities (recommendations)
   const { data: activities } = await supabase
     .from("activities")
-    .select("id, place_name, is_superlike, description, created_at")
+    .select("id, place_name, is_superlike, description, created_at, categories")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -45,6 +45,7 @@ export default async function ProfilePage() {
     name: act.place_name,
     isMustSee: act.is_superlike,
     review: act.description || "",
+    categories: Array.isArray(act.categories) ? act.categories : [],
     timestamp: formatTimestamp(act.created_at),
   }));
 

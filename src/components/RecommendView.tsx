@@ -19,6 +19,18 @@ interface PlaceResult {
   source: "google" | "mapbox" | "manual";
 }
 
+const CATEGORIES = [
+  "Cafe",
+  "Restaurant",
+  "Freizeitpark",
+  "Bar",
+  "Museum",
+  "Kino",
+  "Park",
+  "Natur",
+  "Sehenswuerdigkeit",
+];
+
 export default function RecommendView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
@@ -26,6 +38,7 @@ export default function RecommendView() {
   const [customPlaceName, setCustomPlaceName] = useState("");
   const [customPlaceAddress, setCustomPlaceAddress] = useState("");
   const [isSuperLike, setIsSuperLike] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [description, setDescription] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -45,7 +58,16 @@ export default function RecommendView() {
     setCustomPlaceName("");
     setCustomPlaceAddress("");
     setIsSuperLike(false);
+    setSelectedCategories([]);
     setDescription("");
+  };
+
+  const toggleCategory = (category: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((item) => item !== category)
+        : [...prev, category]
+    );
   };
 
   const runSearch = async () => {
@@ -115,6 +137,7 @@ export default function RecommendView() {
         body: JSON.stringify({
           ...payload,
           isSuperLike,
+          categories: selectedCategories,
           description: description.trim() || null,
         }),
       });
@@ -258,6 +281,37 @@ export default function RecommendView() {
                   placeholder="Adresse oder Stadt (optional)"
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-brand-green-500"
                 />
+              </div>
+            </div>
+
+            {/* Category Selection */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Kategorien
+              </label>
+              <div className="rounded-xl border border-slate-100 bg-white p-3">
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORIES.map((category) => {
+                    const isSelected = selectedCategories.includes(category);
+                    return (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => toggleCategory(category)}
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
+                          isSelected
+                            ? "border-brand-green-600 bg-brand-green-50 text-brand-green-800"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                        }`}
+                      >
+                        {category}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[11px] text-slate-400">
+                  Mehrfachauswahl moeglich.
+                </p>
               </div>
             </div>
 

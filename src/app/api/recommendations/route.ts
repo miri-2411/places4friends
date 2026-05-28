@@ -8,7 +8,29 @@ interface RecommendationPayload {
   latitude: number | null;
   longitude: number | null;
   isSuperLike: boolean;
+  categories?: string[] | null;
   description: string | null;
+}
+
+const ALLOWED_CATEGORIES = new Set([
+  "Cafe",
+  "Restaurant",
+  "Freizeitpark",
+  "Bar",
+  "Museum",
+  "Kino",
+  "Park",
+  "Natur",
+  "Sehenswuerdigkeit",
+]);
+
+function normalizeCategories(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const normalized = input
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0 && ALLOWED_CATEGORIES.has(value));
+  return Array.from(new Set(normalized));
 }
 
 export async function POST(request: Request) {
@@ -32,6 +54,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Ort fehlt." }, { status: 400 });
   }
 
+  const categories = normalizeCategories(payload.categories);
+
   const { data, error } = await supabase
     .from("activities")
     .insert({
@@ -42,6 +66,7 @@ export async function POST(request: Request) {
       latitude: payload.latitude,
       longitude: payload.longitude,
       is_superlike: payload.isSuperLike,
+      categories,
       description: payload.description?.trim() || null,
     })
     .select("id")
