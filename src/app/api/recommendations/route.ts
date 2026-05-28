@@ -1,0 +1,67 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+interface RecommendationPayload {
+  placeId: string | null;
+  placeName: string;
+  placeAddress: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  isSuperLike: boolean;
+  description: string | null;
+}
+
+export async function POST(request: Request) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
+  }
+
+  let payload: RecommendationPayload;
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Ungueltige Anfrage." }, { status: 400 });
+  }
+
+  if (!payload.placeName?.trim()) {
+    return NextResponse.json({ error: "Ort fehlt." }, { status: 400 });
+  }
+
+  const { data, error } = await supabase
+    .from("activities")
+    .insert({
+      user_id: user.id,
+      place_id: payload.placeId,
+      place_name: payload.placeName.trim(),
+      place_address: payload.placeAddress?.trim() || null,
+      latitude: payload.latitude,
+      longitude: payload.longitude,
+      is_superlike: payload.isSuperLike,
+      description: payload.description?.trim() || null,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("activities insert failed", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+    });
+    return NextResponse.json(
+      {
+        error: "Empfehlung konnte nicht gespeichert werden.",
+        details: error.message,
+      },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ id: data?.id ?? null });
+}
