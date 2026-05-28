@@ -1,26 +1,192 @@
 "use client";
 
-import React, { useState } from "react";
-import { Search, MessageSquare, Check, Sparkles, MapPin } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import {
+  Search,
+  MessageSquare,
+  Check,
+  Sparkles,
+  MapPin,
+  LocateFixed,
+  Loader2,
+} from "lucide-react";
+
+type SearchMode = "nearby" | "anywhere";
+
+interface PlaceResult {
+  id: string;
+  name: string;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  source: "google" | "mapbox" | "manual";
+}
 
 export default function RecommendView() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [isMustSee, setIsMustSee] = useState(false);
-  const [reviewText, setReviewText] = useState("");
-  const [isSaved, setIsSaved] = useState(false);
+  const [searchMode, setSearchMode] = useState<SearchMode>("nearby");
+  const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
+  const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null);
+  const [customPlaceName, setCustomPlaceName] = useState("");
+  const [customPlaceAddress, setCustomPlaceAddress] = useState("");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationStatus, setLocationStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [isSuperLike, setIsSuperLike] = useState(false);
+  const [description, setDescription] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [feedback, setFeedback] = useState<
+    { type: "success" | "error"; message: string } | null
+  >(null);
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery) return;
-    
-    setIsSaved(true);
-    setTimeout(() => {
-      setIsSaved(false);
-      // Reset form
-      setSearchQuery("");
-      setReviewText("");
-      setIsMustSee(false);
-    }, 2500);
+  const canSave = useMemo(() => {
+    if (selectedPlace) return true;
+    return customPlaceName.trim().length > 0;
+  }, [selectedPlace, customPlaceName]);
+
+  const resetForm = () => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setSelectedPlace(null);
+    setCustomPlaceName("");
+    setCustomPlaceAddress("");
+    setIsSuperLike(false);
+    setDescription("");
+  };
+
+  const requestLocation = async () => {
+    if (!navigator.geolocation) {
+      setLocationStatus("error");
+      setFeedback({
+        type: "error",
+        message: "Standort ist in diesem Browser nicht verfuegbar.",
+      });
+      return null;
+    }
+
+    setLocationStatus("loading");
+    return new Promise<{ lat: number; lng: number } | null>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const nextCoords = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          setCoords(nextCoords);
+          setLocationStatus("ready");
+          resolve(nextCoords);
+        },
+        () => {
+          setLocationStatus("error");
+          setFeedback({
+            type: "error",
+            message: "Standort konnte nicht bestimmt werden.",
+          });
+          resolve(null);
+        },
+        { enableHighAccuracy: false, timeout: 10000 }
+      );
+    });
+  };
+
+  const runSearch = async () => {
+    setFeedback(null);
+    setIsSearching(true);
+
+    let activeCoords = coords;
+    if (searchMode === "nearby" && !coords) {
+      activeCoords = await requestLocation();
+    }
+
+    const params = new URLSearchParams();
+    if (searchQuery.trim()) {
+      params.set("query", searchQuery.trim());
+    }
+    if (activeCoords) {
+      params.set("lat", String(activeCoords.lat));
+      params.set("lng", String(activeCoords.lng));
+    }
+    params.set("mode", searchMode);
+
+    try {
+      const response = await fetch(`/api/places/search?${params.toString()}`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error ?? "Suche fehlgeschlagen.");
+      }
+      setSearchResults(data.results ?? []);
+      setSelectedPlace(null);
+    } catch (error) {
+      setSearchResults([]);
+      setFeedback({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Suche fehlgeschlagen.",
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setFeedback(null);
+    if (!canSave) return;
+
+    const payload = selectedPlace
+      ? {
+          placeId: selectedPlace.id,
+          placeName: selectedPlace.name,
+          placeAddress: selectedPlace.address,
+          latitude: selectedPlace.latitude,
+          longitude: selectedPlace.longitude,
+        }
+      : {
+          placeId: null,
+          placeName: customPlaceName.trim(),
+          placeAddress: customPlaceAddress.trim() || null,
+          latitude: null,
+          longitude: null,
+        };
+
+    setIsSaving(true);
+    try {
+      const response = await fetch("/api/recommendations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...payload,
+          isSuperLike,
+          description: description.trim() || null,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error ?? "Speichern fehlgeschlagen.");
+      }
+      setFeedback({
+        type: "success",
+        message: "Empfehlung gespeichert.",
+      });
+      resetForm();
+      setTimeout(() => setFeedback(null), 2500);
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Speichern fehlgeschlagen.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -33,14 +199,14 @@ export default function RecommendView() {
 
       {/* Main Form Content */}
       <div className="flex-1 overflow-y-auto px-4 pt-4 page-transition">
-        {isSaved ? (
+        {feedback?.type === "success" ? (
           <div className="my-8 flex flex-col items-center justify-center rounded-2xl border border-brand-green-100 bg-brand-green-50 p-8 text-center shadow-sm transition-all duration-300">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-green-500 text-white shadow-lg shadow-brand-green-500/20">
               <Check className="h-6 w-6 stroke-[3]" />
             </div>
             <h3 className="mt-4 text-base font-bold text-brand-green-900">Erfolgreich empfohlen!</h3>
             <p className="mt-1.5 text-xs text-brand-green-700/80 max-w-xs">
-              Dein Ort wurde in die Liste aufgenommen und ist jetzt für deine Freunde sichtbar.
+              Dein Ort wurde in deine Aktivitaet aufgenommen.
             </p>
           </div>
         ) : (
@@ -48,110 +214,229 @@ export default function RecommendView() {
             {/* Search Input Box */}
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Ort suchen
+                Ort waehlen
               </label>
-              <div className="relative flex items-center rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm focus-within:border-brand-green-500 focus-within:ring-2 focus-within:ring-brand-green-100 transition-all">
-                <Search className="h-5 w-5 text-slate-400 mr-2.5" />
+              <div className="flex items-center gap-2">
+                <div className="relative flex flex-1 items-center rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm focus-within:border-brand-green-500 focus-within:ring-2 focus-within:ring-brand-green-100 transition-all">
+                  <Search className="h-5 w-5 text-slate-400 mr-2.5" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Ort suchen oder in der Naehe schauen"
+                    className="w-full bg-transparent text-[14px] text-slate-800 placeholder-slate-400 outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={runSearch}
+                  disabled={isSearching}
+                  className="flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:text-slate-900 disabled:opacity-60"
+                >
+                  {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Suchen"}
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSearchMode("nearby")}
+                  className={`rounded-full px-3 py-1 text-[11px] font-semibold transition-all ${
+                    searchMode === "nearby"
+                      ? "bg-brand-green-700 text-white"
+                      : "bg-white text-slate-500 border border-slate-200"
+                  }`}
+                >
+                  In der Naehe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSearchMode("anywhere")}
+                  className={`rounded-full px-3 py-1 text-[11px] font-semibold transition-all ${
+                    searchMode === "anywhere"
+                      ? "bg-brand-green-700 text-white"
+                      : "bg-white text-slate-500 border border-slate-200"
+                  }`}
+                >
+                  Ueberall
+                </button>
+                <button
+                  type="button"
+                  onClick={requestLocation}
+                  className="ml-auto inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500 transition-all hover:border-slate-300"
+                >
+                  <LocateFixed className="h-3.5 w-3.5" />
+                  {locationStatus === "loading"
+                    ? "Standort..."
+                    : locationStatus === "ready"
+                    ? "Standort bereit"
+                    : "Standort"}
+                </button>
+              </div>
+            </div>
+
+            {feedback?.type === "error" && (
+              <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {feedback.message}
+              </div>
+            )}
+
+            {/* Search Results */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Treffer
+              </label>
+              {searchResults.length === 0 ? (
+                <div className="rounded-xl border border-slate-100 bg-white px-3 py-3 text-xs text-slate-500">
+                  Keine Treffer. Du kannst einen Ort manuell eintragen.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {searchResults.map((place) => (
+                    <button
+                      type="button"
+                      key={place.id}
+                      onClick={() => {
+                        setSelectedPlace(place);
+                        setCustomPlaceName("");
+                        setCustomPlaceAddress("");
+                      }}
+                      className={`w-full rounded-xl border px-3 py-2 text-left transition-all ${
+                        selectedPlace?.id === place.id
+                          ? "border-brand-green-200 bg-brand-green-50"
+                          : "border-slate-100 bg-white hover:border-slate-200"
+                      }`}
+                    >
+                      <div className="text-sm font-semibold text-slate-800">
+                        {place.name}
+                      </div>
+                      {place.address && (
+                        <div className="text-xs text-slate-500">{place.address}</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Manual Place Entry */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Ort manuell eintragen
+              </label>
+              <div className="space-y-2 rounded-xl border border-slate-100 bg-white p-3">
                 <input
                   type="text"
-                  required
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Wo warst du? / Ort suchen..."
-                  className="w-full bg-transparent text-[14px] text-slate-800 placeholder-slate-400 outline-none"
+                  value={customPlaceName}
+                  onChange={(e) => {
+                    setCustomPlaceName(e.target.value);
+                    if (selectedPlace) setSelectedPlace(null);
+                  }}
+                  placeholder="Name des Ortes"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-brand-green-500"
+                />
+                <input
+                  type="text"
+                  value={customPlaceAddress}
+                  onChange={(e) => setCustomPlaceAddress(e.target.value)}
+                  placeholder="Adresse oder Stadt (optional)"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-brand-green-500"
                 />
               </div>
             </div>
 
-            {/* Must See / Super-Empfehlung Toggle */}
+            {/* Superlike Toggle */}
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Empfehlungs-Typ
+                Like oder Superlike
               </label>
               <button
                 type="button"
-                onClick={() => setIsMustSee(!isMustSee)}
+                onClick={() => setIsSuperLike(!isSuperLike)}
                 className={`relative w-full flex items-center justify-between overflow-hidden rounded-2xl border p-4 text-left transition-all duration-300 cursor-pointer ${
-                  isMustSee
+                  isSuperLike
                     ? "border-amber-200 bg-amber-50/50 shadow-md shadow-amber-500/5 ring-1 ring-amber-400/30"
                     : "border-slate-200 bg-white hover:border-slate-300 shadow-sm"
                 }`}
               >
-                {/* Glow/pattern effect behind the icon when active */}
-                {isMustSee && (
+                {isSuperLike && (
                   <div className="absolute -right-6 -bottom-6 h-24 w-24 rounded-full bg-amber-200/20 blur-xl pointer-events-none" />
                 )}
-                
                 <div className="flex items-center gap-3.5 z-10">
                   <div
                     className={`flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-300 ${
-                      isMustSee
+                      isSuperLike
                         ? "bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-md shadow-amber-500/30 rotate-6"
                         : "bg-slate-100 text-slate-400"
                     }`}
                   >
-                    <Sparkles className={`h-5.5 w-5.5 ${isMustSee ? "animate-pulse" : ""}`} />
+                    <Sparkles className={`h-5.5 w-5.5 ${isSuperLike ? "animate-pulse" : ""}`} />
                   </div>
                   <div>
-                    <h4 className={`text-sm font-bold transition-colors ${isMustSee ? "text-amber-900" : "text-slate-700"}`}>
-                      „Must See“ & Super-Empfehlung
+                    <h4
+                      className={`text-sm font-bold transition-colors ${
+                        isSuperLike ? "text-amber-900" : "text-slate-700"
+                      }`}
+                    >
+                      Superlike
                     </h4>
-                    <p className={`text-xs mt-0.5 transition-colors ${isMustSee ? "text-amber-800/80" : "text-slate-400"}`}>
-                      Markiere diesen Ort als absolutes Highlight für deine Freunde!
+                    <p
+                      className={`text-xs mt-0.5 transition-colors ${
+                        isSuperLike ? "text-amber-800/80" : "text-slate-400"
+                      }`}
+                    >
+                      Markiere diesen Ort als besonderes Highlight.
                     </p>
                   </div>
                 </div>
 
-                {/* Elegant Toggle Switch */}
                 <div
                   className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-300 p-0.5 cursor-pointer z-10 ${
-                    isMustSee ? "bg-amber-500" : "bg-slate-200"
+                    isSuperLike ? "bg-amber-500" : "bg-slate-200"
                   }`}
                 >
                   <div
                     className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-300 ${
-                      isMustSee ? "translate-x-5" : "translate-x-0"
+                      isSuperLike ? "translate-x-5" : "translate-x-0"
                     }`}
                   />
                 </div>
               </button>
             </div>
 
-            {/* Review Input */}
+            {/* Description Input */}
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Deine Empfehlung (optional)
+                Beschreibung (optional)
               </label>
               <div className="relative flex rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm focus-within:border-brand-green-500 focus-within:ring-2 focus-within:ring-brand-green-100 transition-all">
                 <MessageSquare className="h-5 w-5 text-slate-400 mr-2.5 mt-0.5" />
                 <textarea
-                  value={reviewText}
-                  onChange={(e) => setReviewText(e.target.value)}
-                  placeholder="Warum gefällt dir dieser Ort? Gibt es Geheimtipps (z.B. den Espresso oder den Ausblick)?"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Was macht diesen Ort besonders?"
                   rows={4}
                   className="w-full bg-transparent text-[14px] text-slate-800 placeholder-slate-400 outline-none resize-none"
                 />
               </div>
             </div>
-
-
           </form>
         )}
       </div>
 
-      {/* Save Button (Sticky relative to content bottom, but locked in the mobile viewport frame) */}
-      {!isSaved && (
+      {/* Save Button */}
+      {feedback?.type !== "success" && (
         <div className="absolute bottom-20 left-0 right-0 z-40 px-4">
           <button
             onClick={handleSave}
-            disabled={!searchQuery}
+            disabled={!canSave || isSaving}
             className={`w-full flex items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold shadow-lg text-white transition-all cursor-pointer ${
-              searchQuery
+              canSave && !isSaving
                 ? "bg-brand-green-700 shadow-brand-green-900/10 active:scale-[0.98] hover:bg-brand-green-800"
                 : "bg-slate-300 shadow-none cursor-not-allowed opacity-80"
             }`}
           >
-            <MapPin className="h-4 w-4" />
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
             Empfehlung speichern
           </button>
         </div>
