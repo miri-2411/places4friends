@@ -1,11 +1,12 @@
 import ProfileView from "@/components/ProfileView";
-import { cookies } from 'next/headers';
-import { getUserFromToken } from '@/lib/auth';
 
 export default async function ProfilePage() {
-  const cookieStore = cookies();
-  const tokenCookie = cookieStore.get('token')?.value;
-  const user = await getUserFromToken(tokenCookie);
-
-  return <ProfileView user={user} />;
+  try {
+    const res = await fetch('/api/auth/me', { cache: 'no-store' });
+    const json = await res.json();
+    const user = json?.user ?? null;
+    return <ProfileView user={user} />;
+  } catch (err) {
+    return <ProfileView user={null} />;
+  }
 }
