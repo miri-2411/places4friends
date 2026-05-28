@@ -15,25 +15,30 @@ export default function LoginForm() {
 
     // Use custom server-side login which validates against hashed DB
     try {
-      const res = await fetch('/api/auth/login', {
+      const apiUrl = `${window.location.origin}/api/auth/login`;
+      const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const json = await res.json();
+
+      let payload: any = null;
+      const text = await res.text();
+      try { payload = text ? JSON.parse(text) : null; } catch { payload = { text }; }
+
       setLoading(false);
       if (!res.ok) {
-        setMessage(json.error || 'Login failed');
+        const errMsg = payload?.error || payload?.text || `Login failed (${res.status})`;
+        console.error('Login error response:', payload);
+        setMessage(errMsg);
       } else {
-        // store token if returned
-        // token is set as httpOnly cookie by server; no localStorage needed
         setMessage('Logged in successfully');
-        // redirect to profile
         window.location.href = '/profile';
       }
     } catch (err) {
       setLoading(false);
-      setMessage('Server error');
+      console.error('Login fetch failed:', err);
+      setMessage((err as any)?.message || 'Network error');
     }
   };
 
