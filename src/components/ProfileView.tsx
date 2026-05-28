@@ -3,6 +3,13 @@
 import React from "react";
 import { Settings, Sparkles } from "lucide-react";
 
+interface User {
+  id: string;
+  email: string;
+  name?: string | null;
+  username?: string | null;
+}
+
 interface PlaceItem {
   id: string;
   name: string;
@@ -11,7 +18,7 @@ interface PlaceItem {
   timestamp: string;
 }
 
-export default function ProfileView() {
+export default function ProfileView({ user }: { user?: User }) {
   const places: PlaceItem[] = [
     {
       id: "1",
@@ -102,11 +109,16 @@ export default function ProfileView() {
   return (
     <div className="flex flex-col min-h-screen bg-slate-50/50 pb-20 font-sans">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-slate-100 bg-white px-4">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-slate-100 bg-white px-4">
         <h1 className="text-lg font-bold text-slate-900">Mein Profil</h1>
-        <button className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 active:scale-95 transition-all">
-          <Settings className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login'; }} className="flex h-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 active:scale-95 transition-all px-3">
+            Logout
+          </button>
+          <button className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 active:scale-95 transition-all">
+            <Settings className="h-5 w-5" />
+          </button>
+        </div>
       </header>
 
       <div className="flex-grow overflow-y-auto px-4 pt-6 page-transition">
@@ -115,14 +127,14 @@ export default function ProfileView() {
           {/* Avatar Placeholder */}
           <div className="relative">
             <div className="flex h-22 w-22 items-center justify-center rounded-full bg-gradient-to-tr from-brand-green-800 to-brand-green-500 p-0.5 shadow-md">
-              <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-slate-800 font-bold text-2xl">
-                MM
-              </div>
+                  <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-slate-800 font-bold text-2xl">
+                    {user?.name ? user.name.split(' ').map(n => n[0]).slice(0,2).join('') : (user?.username ? user.username.slice(0,2).toUpperCase() : '')}
+                  </div>
             </div>
           </div>
 
-          <h2 className="mt-4 text-lg font-bold text-slate-950">Max Mustermann</h2>
-          <p className="text-xs font-semibold text-brand-green-700 mt-0.5">@max_mustermann</p>
+          <h2 className="mt-4 text-lg font-bold text-slate-950">{user?.name ?? user?.email ?? 'Profil'}</h2>
+          <p className="text-xs font-semibold text-brand-green-700 mt-0.5">{user?.username ? `@${user.username}` : ''}</p>
 
           {/* Stats Bar */}
           <div className="mt-6 flex w-full max-w-[280px] divide-x divide-slate-100 rounded-xl border border-slate-100 bg-white py-3 shadow-[0_4px_16px_rgba(0,0,0,0.02)]">

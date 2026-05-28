@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
+import AuthCleaner from '@/components/AuthCleaner';
 
 const inter = Inter({
   variable: "--font-inter",
@@ -37,6 +38,7 @@ export default function RootLayout({
         <div className="relative flex flex-col w-full max-w-md h-full bg-white shadow-2xl md:border-x md:border-slate-100 overflow-hidden">
           {/* Main content scrollable wrapper */}
           <main className="flex-1 overflow-y-auto w-full no-scrollbar pb-4 bg-slate-50/20">
+            <AuthCleaner />
             {children}
           </main>
           
