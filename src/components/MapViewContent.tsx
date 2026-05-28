@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Map from "react-map-gl/mapbox";
-import { Search, Compass, Users, MapPin } from "lucide-react";
+import { Search, Users, MapPin } from "lucide-react";
 
 export default function MapViewContent() {
   const [viewState, setViewState] = useState({
@@ -56,22 +56,7 @@ export default function MapViewContent() {
         />
       </div>
 
-      {/* Floating Action Button */}
-      <div className="absolute bottom-20 right-4 z-10 flex flex-col gap-2">
-        <button
-          onClick={() => {
-            setViewState({
-              longitude: 13.405,
-              latitude: 52.52,
-              zoom: 12,
-            });
-          }}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-100 bg-white shadow-lg text-slate-600 hover:bg-slate-50 active:scale-90 transition-all cursor-pointer"
-          title="Zurück nach Berlin"
-        >
-          <Compass className="h-5 w-5 stroke-[2.2]" />
-        </button>
-      </div>
+
     </div>
   );
 }

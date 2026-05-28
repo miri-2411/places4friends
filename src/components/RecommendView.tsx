@@ -134,13 +134,7 @@ export default function RecommendView() {
               </div>
             </div>
 
-            {/* Form Guide/Disclaimer */}
-            <div className="flex gap-2.5 rounded-xl bg-slate-100/70 p-3 text-[11px] text-slate-500 leading-normal">
-              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm font-semibold">i</div>
-              <p>
-                Deine Empfehlung wird mit deinen Freunden geteilt und erscheint auf deren Karte sowie in ihrem Aktivitäts-Feed.
-              </p>
-            </div>
+
           </form>
         )}
       </div>

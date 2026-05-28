@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Settings, Sparkles, Check } from "lucide-react";
+import { Settings, Sparkles } from "lucide-react";
 
 interface PlaceItem {
   id: string;
@@ -118,9 +118,6 @@ export default function ProfileView() {
               <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-slate-800 font-bold text-2xl">
                 MM
               </div>
-            </div>
-            <div className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-brand-green-500 text-white">
-              <Check className="h-3 w-3 stroke-[3.5]" />
             </div>
           </div>
 
