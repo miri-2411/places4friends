@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Map, { Marker, Popup } from "react-map-gl/mapbox";
-import { Users, MapPin, Sparkles, Loader2 } from "lucide-react";
-import Link from "next/link";
+import { Search, Users, MapPin, Sparkles, Layers, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface UserProfile {
@@ -45,6 +44,14 @@ function getUserColorClass(userId: string): string {
   return COLORS[sum % COLORS.length];
 }
 
+const MAP_STYLES = [
+  { id: "streets", name: "Standard", url: "mapbox://styles/mapbox/streets-v12" },
+  { id: "light", name: "Hell (Schwarz-Weiß)", url: "mapbox://styles/mapbox/light-v11" },
+  { id: "dark", name: "Dunkel", url: "mapbox://styles/mapbox/dark-v11" },
+  { id: "satellite", name: "Satellit", url: "mapbox://styles/mapbox/satellite-streets-v12" },
+  { id: "outdoors", name: "Outdoor", url: "mapbox://styles/mapbox/outdoors-v12" },
+];
+
 export default function MapViewContent() {
   const supabase = createClient();
 
@@ -61,6 +68,8 @@ export default function MapViewContent() {
 
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [currentStyle, setCurrentStyle] = useState("mapbox://styles/mapbox/streets-v12");
+  const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
 
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -341,32 +350,6 @@ export default function MapViewContent() {
           )}
         </Map>
       </div>
-
-      {/* Floating Login/Register Prompt Modal at the bottom when logged out */}
-      {!isLoading && !user && (
-        <div className="absolute bottom-20 left-4 right-4 z-20 bg-white/95 border border-slate-150 p-5 rounded-2xl shadow-2xl backdrop-blur-md flex flex-col gap-3">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">Entdecke Orte mit deinen Freunden</h3>
-            <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-              Melde dich an oder registriere dich, um die Lieblingsorte deiner Freunde auf der interaktiven Karte zu sehen.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Link
-              href="/login"
-              className="flex-1 text-center py-2.5 rounded-xl bg-brand-green-700 hover:bg-brand-green-800 text-xs font-bold text-white transition-all shadow-sm shadow-brand-green-700/10 active:scale-[0.98]"
-            >
-              Anmelden
-            </Link>
-            <Link
-              href="/register"
-              className="flex-1 text-center py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 bg-white transition-all shadow-sm active:scale-[0.98]"
-            >
-              Registrieren
-            </Link>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
