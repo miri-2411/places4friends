@@ -6,8 +6,8 @@ import { Search, Users, MapPin } from "lucide-react";
 
 export default function MapViewContent() {
   const [viewState, setViewState] = useState({
-    longitude: 13.405,
-    latitude: 52.52,
+    longitude: 12.1016,
+    latitude: 49.0151,
     zoom: 12,
   });
 
