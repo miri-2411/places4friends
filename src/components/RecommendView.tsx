@@ -676,11 +676,11 @@ export default function RecommendView() {
               <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                 Bilder (optional, max. 3)
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="flex flex-wrap gap-3">
                 {selectedFiles.map((file, idx) => {
                   const previewUrl = URL.createObjectURL(file);
                   return (
-                    <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-100 bg-slate-50 group">
+                    <div key={idx} className="relative w-20 sm:w-24 aspect-square flex-shrink-0 rounded-xl overflow-hidden border border-slate-100 bg-slate-50 group shadow-sm">
                       <img src={previewUrl} alt="Vorschau" className="h-full w-full object-cover" />
                       <button
                         type="button"
@@ -693,7 +693,7 @@ export default function RecommendView() {
                   );
                 })}
                 {selectedFiles.length < 3 && (
-                  <label className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/50 hover:bg-slate-50 transition-all hover:border-brand-green-500 group">
+                  <label className="flex w-full h-28 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/50 hover:bg-slate-50 transition-all hover:border-brand-green-500 group">
                     <ImageIcon className="h-5 w-5 text-slate-400 group-hover:text-brand-green-600 transition-colors" />
                     <span className="mt-1 text-[10px] font-semibold text-slate-400 group-hover:text-brand-green-600 transition-colors">
                       Bild hinzufügen
