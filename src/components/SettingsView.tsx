@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Mail, Save, User, AtSign, Bell } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Mail, Save, User, AtSign, Bell, Trash2, X, AlertTriangle, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface UserProfile {
@@ -22,6 +23,11 @@ export default function SettingsView({ user }: { user: UserProfile }) {
   );
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
+
+  const router = useRouter();
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const hasChanges = useMemo(() => {
     const nextName = fullName.trim();
@@ -95,6 +101,28 @@ export default function SettingsView({ user }: { user: UserProfile }) {
         ? "Bitte bestätige die neue E-Mail-Adresse in deinem Postfach."
         : "Gespeichert."
     );
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const response = await fetch('/api/user', {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Konto konnte nicht gelöscht werden.");
+      }
+      
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push('/register');
+    } catch (error: any) {
+      setDeleteError(error.message);
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -197,6 +225,21 @@ export default function SettingsView({ user }: { user: UserProfile }) {
           </p>
         </section>
 
+        <section className="space-y-3 rounded-2xl border border-rose-100 bg-rose-50/50 p-4 shadow-[0_8px_30px_rgb(0,0,0,0.03)]">
+          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-rose-500">Gefahrenzone</h2>
+          <p className="text-[11px] font-medium text-slate-500">
+            Wenn du deinen Account löschst, werden alle deine Daten unwiderruflich gelöscht. Dies kann nicht rückgängig gemacht werden.
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsDeleteModalOpen(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-600 shadow-sm transition-all hover:bg-rose-50 active:scale-[0.98]"
+          >
+            <Trash2 className="h-4 w-4" />
+            Konto löschen
+          </button>
+        </section>
+
         {message && (
           <div
             className={`rounded-xl px-3 py-2 text-xs font-semibold ${
@@ -218,6 +261,56 @@ export default function SettingsView({ user }: { user: UserProfile }) {
           Speichern
         </button>
       </form>
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm transition-all duration-300">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 bg-white">
+              <h2 className="text-sm font-bold text-rose-600 flex items-center gap-2">
+                <AlertTriangle className="h-4.5 w-4.5" />
+                Konto wirklich löschen?
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-600 active:scale-95 transition-all cursor-pointer"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+            </div>
+            <div className="p-5">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Bist du sicher, dass du deinen Account unwiderruflich löschen möchtest? Alle deine Empfehlungen, Freundschaften und Einstellungen werden dauerhaft entfernt. Dieser Schritt kann nicht rückgängig gemacht werden.
+              </p>
+              {deleteError && (
+                <div className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                  {deleteError}
+                </div>
+              )}
+              <div className="mt-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  disabled={isDeleting}
+                  className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+                >
+                  {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  Löschen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
