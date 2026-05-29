@@ -1264,8 +1264,14 @@ export default function ProfileView({
       </div>
 
       {isCropOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl border border-slate-100 bg-white p-5 shadow-2xl">
+        <div 
+          onClick={handleCropCancel}
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl border border-slate-100 bg-white p-5 shadow-2xl"
+          >
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900">Profilbild zuschneiden</h3>
               <button

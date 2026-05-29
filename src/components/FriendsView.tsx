@@ -646,8 +646,18 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
 
       {/* Search Modal */}
       {isSearchModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm transition-all duration-300">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl transition-all duration-350 flex flex-col min-h-[520px] max-h-[85vh]">
+        <div 
+          onClick={() => {
+            setIsSearchModalOpen(false);
+            setSearchQuery("");
+            setSearchResults([]);
+          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm transition-all duration-300"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl transition-all duration-350 flex flex-col min-h-[520px] max-h-[85vh]"
+          >
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 bg-white">
               <h2 className="text-sm font-bold text-slate-900">Freunde suchen & hinzufügen</h2>

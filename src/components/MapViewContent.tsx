@@ -433,11 +433,12 @@ export default function MapViewContent() {
     return () => clearTimeout(delayDebounce);
   }, [searchQuery, filteredPlaces, viewState.latitude, viewState.longitude]);
 
-  // Click outside search bar to close suggestions
+  // Click outside search bar to close suggestions and filter menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
+        setIsFilterMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -828,7 +829,6 @@ export default function MapViewContent() {
                 <button
                   onClick={() => {
                     setRecommendationFilter("all");
-                    setIsFilterMenuOpen(false);
                   }}
                   className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
                     recommendationFilter === "all"
@@ -841,7 +841,6 @@ export default function MapViewContent() {
                 <button
                   onClick={() => {
                     setRecommendationFilter("must-see");
-                    setIsFilterMenuOpen(false);
                   }}
                   className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
                     recommendationFilter === "must-see"
@@ -1230,8 +1229,14 @@ export default function MapViewContent() {
           <div>
 
           {isCommentsOpen && selectedPlace && (
-            <div className="fixed inset-0 z-[120] flex items-end justify-center bg-slate-950/50 px-4 pb-6 backdrop-blur-sm">
-              <div className="w-full max-w-md rounded-2xl border border-slate-100 bg-white shadow-2xl">
+            <div 
+              onClick={closeComments}
+              className="fixed inset-0 z-[120] flex items-end justify-center bg-slate-950/50 px-4 pb-6 backdrop-blur-sm"
+            >
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md rounded-2xl border border-slate-100 bg-white shadow-2xl"
+              >
                 <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Kommentare</p>
