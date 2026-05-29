@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { 
-  ChevronLeft, 
   Search, 
   UserPlus, 
   UserMinus, 
@@ -15,6 +14,7 @@ import {
   X 
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+
 
 interface Profile {
   id: string;
@@ -242,15 +242,8 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
   return (
     <div className="flex flex-col min-h-screen bg-slate-50/50 pb-24 font-sans">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-slate-100 bg-white px-4">
-        <Link 
-          href="/profile" 
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 hover:text-slate-800 active:scale-95 transition-all"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </Link>
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-center border-b border-slate-100 bg-white px-4">
         <h1 className="text-sm font-bold text-slate-900">Freunde & Anfragen</h1>
-        <div className="w-8" /> {/* Spacer to center the title */}
       </header>
 
       {/* Tabs */}
