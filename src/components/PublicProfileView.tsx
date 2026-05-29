@@ -102,19 +102,19 @@ export default function PublicProfileView({
         <div className="flex flex-col items-center text-center">
           {/* Avatar */}
           <div className="relative">
-            <div className={`flex h-22 w-22 items-center justify-center rounded-full p-0.5 shadow-md ${friend.color}`}>
-              {avatarPublicUrl ? (
+            {avatarPublicUrl ? (
+              <div className="flex h-22 w-22 items-center justify-center rounded-full bg-slate-100 shadow-md">
                 <img
                   src={avatarPublicUrl}
                   alt="Profilbild"
                   className="h-full w-full rounded-full object-cover"
                 />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-slate-800 font-bold text-2xl">
-                  {friend.initials}
-                </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className={`flex h-22 w-22 items-center justify-center rounded-full text-white font-bold text-2xl shadow-md ${friend.color}`}>
+                {friend.initials}
+              </div>
+            )}
           </div>
 
           <h2 className="mt-4 text-lg font-bold text-slate-950">

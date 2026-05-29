@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Settings, Sparkles, LogOut, UserPlus, MapPin, Pencil, Trash2, X, Check, Bookmark, Loader2, Menu, Shield, FileText } from "lucide-react";
+import { Settings, Sparkles, LogOut, MapPin, Pencil, Trash2, X, Check, Bookmark, Loader2, Menu, Shield, FileText, MoreVertical, MessageCircle } from "lucide-react";
 import { signout } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/client";
 import ActivityCard from "./ActivityCard";
@@ -113,6 +113,8 @@ export default function ProfileView({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentInput, setEditingCommentInput] = useState("");
   const [commentDeletingId, setCommentDeletingId] = useState<string | null>(null);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const cropCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const cropImageRef = useRef<HTMLImageElement | null>(null);
@@ -130,6 +132,16 @@ export default function ProfileView({
   useEffect(() => {
     setWishlistItems(wishlist);
   }, [wishlist]);
+
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      setActiveMenuId(null);
+    };
+    window.addEventListener("click", handleOutsideClick);
+    return () => {
+      window.removeEventListener("click", handleOutsideClick);
+    };
+  }, []);
 
   useEffect(() => {
     setAvatarPath(user?.avatarUrl ?? null);
@@ -525,6 +537,18 @@ export default function ProfileView({
     }
   };
 
+  const toggleMenu = (placeId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActiveMenuId((prev) => (prev === placeId ? null : placeId));
+  };
+
+  const toggleComments = (placeId: string) => {
+    setExpandedComments((prev) => ({
+      ...prev,
+      [placeId]: !prev[placeId],
+    }));
+  };
+
   const updateCommentInput = (placeId: string, value: string) => {
     setCommentInputs((prev) => ({ ...prev, [placeId]: value }));
   };
@@ -726,23 +750,23 @@ export default function ProfileView({
         <div className="flex flex-col items-center text-center">
           {/* Avatar Placeholder */}
           <div className="relative">
-            <div className="flex h-22 w-22 items-center justify-center rounded-full bg-gradient-to-tr from-brand-green-800 to-brand-green-500 p-0.5 shadow-md">
-              {avatarPublicUrl ? (
+            {avatarPublicUrl ? (
+              <div className="flex h-22 w-22 items-center justify-center rounded-full bg-slate-100 shadow-md">
                 <img
                   src={avatarPublicUrl}
                   alt="Profilbild"
                   className="h-full w-full rounded-full object-cover"
                 />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-slate-800 font-bold text-2xl">
-                  {user?.name
-                    ? user.name.split(" ").map((n) => n[0]).slice(0, 2).join("")
-                    : user?.username
-                    ? user.username.slice(0, 2).toUpperCase()
-                    : ""}
-                </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="flex h-22 w-22 items-center justify-center rounded-full bg-gradient-to-tr from-brand-green-800 to-brand-green-500 text-white font-bold text-2xl shadow-md">
+                {user?.name
+                  ? user.name.split(" ").map((n) => n[0]).slice(0, 2).join("")
+                  : user?.username
+                  ? user.username.slice(0, 2).toUpperCase()
+                  : ""}
+              </div>
+            )}
             <button
               type="button"
               onClick={triggerAvatarPicker}
@@ -774,27 +798,6 @@ export default function ProfileView({
 
           <h2 className="mt-4 text-lg font-bold text-slate-950">{user?.name ?? user?.email ?? 'Profil'}</h2>
           <p className="text-xs font-semibold text-brand-green-700 mt-0.5">{user?.username ? `@${user.username}` : ''}</p>
-
-          {/* Stats Bar */}
-          <div className="mt-6 flex w-full max-w-[280px] divide-x divide-slate-100 rounded-xl border border-slate-100 bg-white py-3 shadow-[0_4px_16px_rgba(0,0,0,0.02)]">
-            <div className="flex flex-1 flex-col items-center justify-center">
-              <span className="text-base font-extrabold text-slate-900">{items.length}</span>
-              <span className="text-[10px] font-medium tracking-wide text-slate-400 uppercase">Empfehlungen</span>
-            </div>
-            <div className="flex flex-1 flex-col items-center justify-center">
-              <span className="text-base font-extrabold text-slate-900">{friendsCount}</span>
-              <span className="text-[10px] font-medium tracking-wide text-slate-400 uppercase">Freunde</span>
-            </div>
-          </div>
-
-          {/* Add Friends Button */}
-          <Link
-            href="/profile/friends"
-            className="mt-4 flex items-center justify-center gap-1.5 w-full max-w-[280px] rounded-xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-700 py-2.5 text-xs font-bold shadow-sm transition-all cursor-pointer"
-          >
-            <UserPlus className="h-4 w-4 text-brand-green-700" />
-            Freunde hinzufügen
-          </Link>
         </div>
 
         {/* Tabs */}
@@ -915,24 +918,42 @@ export default function ProfileView({
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2">
+                          <div className="relative">
                             <button
                               type="button"
-                              onClick={() => startEdit(place)}
-                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 cursor-pointer"
-                              title="Bearbeiten"
+                              onClick={(e) => toggleMenu(place.id, e)}
+                              className="flex items-center justify-center p-1 text-slate-400 hover:text-slate-700 active:scale-95 transition-all cursor-pointer"
+                              title="Optionen"
                             >
-                              <Pencil className="h-3 w-3" />
+                              <MoreVertical className="h-5 w-5" />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => deletePlace(place.id)}
-                              disabled={deletingId === place.id}
-                              className="inline-flex items-center gap-1 rounded-lg border border-red-100 px-2.5 py-1 text-[10px] font-semibold text-red-600 disabled:opacity-60 cursor-pointer"
-                              title="Löschen"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
+                            {activeMenuId === place.id && (
+                              <div className="absolute right-0 mt-1 w-32 origin-top-right rounded-xl border border-slate-100 bg-white p-1 shadow-lg ring-1 ring-black/5 z-30 animate-in fade-in slide-in-from-top-1 duration-100">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    startEdit(place);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 active:scale-98 transition-all cursor-pointer text-left"
+                                >
+                                  <Pencil className="h-3 w-3 text-slate-400" />
+                                  Bearbeiten
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    deletePlace(place.id);
+                                    setActiveMenuId(null);
+                                  }}
+                                  disabled={deletingId === place.id}
+                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[11px] font-semibold text-red-600 hover:bg-red-50 active:scale-98 transition-all cursor-pointer text-left disabled:opacity-60"
+                                >
+                                  <Trash2 className="h-3 w-3 text-red-400" />
+                                  Löschen
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )
                       }
@@ -943,120 +964,137 @@ export default function ProfileView({
                         </div>
                       )}
 
-                      <div className="mt-4 border-t border-slate-100 pt-4">
-                        <div className="flex items-center justify-between text-[10px] text-slate-400">
-                          <span className="font-semibold uppercase tracking-wide">Kommentare</span>
-                          <span>{commentsByPlace[place.id]?.length ?? 0}</span>
-                        </div>
-
-                        {commentErrors[place.id] && (
-                          <div className="mt-2 rounded-lg border border-red-100 bg-red-50 px-2.5 py-1.5 text-[10px] text-red-700">
-                            {commentErrors[place.id]}
-                          </div>
-                        )}
-
-                        {loadingComments[place.id] ? (
-                          <div className="mt-2 text-[10px] text-slate-500">
-                            Kommentare werden geladen...
-                          </div>
-                        ) : (commentsByPlace[place.id] ?? []).length === 0 ? (
-                          <div className="mt-2 text-[10px] text-slate-500">
-                            Noch keine Kommentare.
-                          </div>
-                        ) : (
-                          <div className="mt-2 space-y-2">
-                            {(commentsByPlace[place.id] ?? []).map((comment) => (
-                              <div key={comment.id} className="flex gap-2">
-                                {comment.userAvatarUrl ? (
-                                  <img
-                                    src={comment.userAvatarUrl}
-                                    alt={comment.userName}
-                                    className="h-5 w-5 rounded-full object-cover flex-shrink-0"
-                                  />
-                                ) : (
-                                  <div className={`flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white flex-shrink-0 ${comment.userColor}`}>
-                                    {comment.userInitials}
-                                  </div>
-                                )}
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-semibold text-slate-700">
-                                      {comment.userName}
-                                    </span>
-                                    <span className="text-[9px] text-slate-400">
-                                      {formatCommentTimestamp(comment.createdAt)}
-                                    </span>
-                                    {user?.id === comment.userId && editingCommentId !== comment.id && (
-                                      <div className="ml-auto flex items-center gap-1">
-                                        <button
-                                          type="button"
-                                          onClick={() => startEditComment(comment)}
-                                          className="text-[9px] font-semibold text-slate-500 hover:text-slate-700 cursor-pointer"
-                                        >
-                                          Bearbeiten
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDeleteComment(place.id, comment.id)}
-                                          disabled={commentDeletingId === comment.id}
-                                          className="text-[9px] font-semibold text-red-500 hover:text-red-600 disabled:opacity-60 cursor-pointer"
-                                        >
-                                          Loeschen
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
-                                  {editingCommentId === comment.id ? (
-                                    <div className="mt-1 flex gap-2">
-                                      <input
-                                        value={editingCommentInput}
-                                        onChange={(e) => setEditingCommentInput(e.target.value)}
-                                        className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 outline-none focus:border-brand-green-500"
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => handleUpdateComment(place.id, comment.id)}
-                                        disabled={savingCommentId === place.id || editingCommentInput.trim().length === 0}
-                                        className="rounded-lg bg-brand-green-700 px-2 py-1 text-[9px] font-semibold text-white disabled:opacity-60 cursor-pointer"
-                                      >
-                                        {savingCommentId === place.id ? "..." : "OK"}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={cancelEditComment}
-                                        className="rounded-lg border border-slate-200 px-2 py-1 text-[9px] font-semibold text-slate-500 cursor-pointer"
-                                      >
-                                        X
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <p className="text-[11px] text-slate-600 leading-snug">
-                                      {comment.content}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="mt-3 flex gap-2">
-                          <input
-                            value={commentInputs[place.id] ?? ""}
-                            onChange={(e) => updateCommentInput(place.id, e.target.value)}
-                            placeholder="Kommentar schreiben"
-                            className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-brand-green-500"
-                          />
+                      {editingId !== place.id && (
+                        <div className="pl-5 pt-3 flex items-center">
                           <button
                             type="button"
-                            onClick={() => handleAddComment(place.id)}
-                            disabled={savingCommentId === place.id || !(commentInputs[place.id] || "").trim()}
-                            className="rounded-lg bg-brand-green-700 px-3 py-1.5 text-[10px] font-semibold text-white transition-all disabled:opacity-60 cursor-pointer"
+                            onClick={() => toggleComments(place.id)}
+                            className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-brand-green-800 transition-colors cursor-pointer"
                           >
-                            {savingCommentId === place.id ? "..." : "Senden"}
+                            <MessageCircle className="h-4 w-4" />
+                            <span>
+                              {commentsByPlace[place.id]?.length ?? 0} {commentsByPlace[place.id]?.length === 1 ? "Kommentar" : "Kommentare"}
+                            </span>
                           </button>
                         </div>
-                      </div>
+                      )}
+
+                      {expandedComments[place.id] && (
+                        <div className="mt-4 border-t border-slate-100 pt-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                          <div className="flex items-center justify-between text-[10px] text-slate-400">
+                            <span className="font-semibold uppercase tracking-wide">Kommentare</span>
+                            <span>{commentsByPlace[place.id]?.length ?? 0}</span>
+                          </div>
+
+                          {commentErrors[place.id] && (
+                            <div className="mt-2 rounded-lg border border-red-100 bg-red-50 px-2.5 py-1.5 text-[10px] text-red-700">
+                              {commentErrors[place.id]}
+                            </div>
+                          )}
+
+                          {loadingComments[place.id] ? (
+                            <div className="mt-2 text-[10px] text-slate-500">
+                              Kommentare werden geladen...
+                            </div>
+                          ) : (commentsByPlace[place.id] ?? []).length === 0 ? (
+                            <div className="mt-2 text-[10px] text-slate-500">
+                              Noch keine Kommentare.
+                            </div>
+                          ) : (
+                            <div className="mt-2 space-y-2">
+                              {(commentsByPlace[place.id] ?? []).map((comment) => (
+                                <div key={comment.id} className="flex gap-2">
+                                  {comment.userAvatarUrl ? (
+                                    <img
+                                      src={comment.userAvatarUrl}
+                                      alt={comment.userName}
+                                      className="h-5 w-5 rounded-full object-cover flex-shrink-0"
+                                    />
+                                  ) : (
+                                    <div className={`flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white flex-shrink-0 ${comment.userColor}`}>
+                                      {comment.userInitials}
+                                    </div>
+                                  )}
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] font-semibold text-slate-700">
+                                        {comment.userName}
+                                      </span>
+                                      <span className="text-[9px] text-slate-400">
+                                        {formatCommentTimestamp(comment.createdAt)}
+                                      </span>
+                                      {user?.id === comment.userId && editingCommentId !== comment.id && (
+                                        <div className="ml-auto flex items-center gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => startEditComment(comment)}
+                                            className="text-[9px] font-semibold text-slate-500 hover:text-slate-700 cursor-pointer"
+                                          >
+                                            Bearbeiten
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteComment(place.id, comment.id)}
+                                            disabled={commentDeletingId === comment.id}
+                                            className="text-[9px] font-semibold text-red-500 hover:text-red-600 disabled:opacity-60 cursor-pointer"
+                                          >
+                                            Loeschen
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {editingCommentId === comment.id ? (
+                                      <div className="mt-1 flex gap-2">
+                                        <input
+                                          value={editingCommentInput}
+                                          onChange={(e) => setEditingCommentInput(e.target.value)}
+                                          className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 outline-none focus:border-brand-green-500"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => handleUpdateComment(place.id, comment.id)}
+                                          disabled={savingCommentId === place.id || editingCommentInput.trim().length === 0}
+                                          className="rounded-lg bg-brand-green-700 px-2 py-1 text-[9px] font-semibold text-white disabled:opacity-60 cursor-pointer"
+                                        >
+                                          {savingCommentId === place.id ? "..." : "OK"}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={cancelEditComment}
+                                          className="rounded-lg border border-slate-200 px-2 py-1 text-[9px] font-semibold text-slate-500 cursor-pointer"
+                                        >
+                                          X
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <p className="text-[11px] text-slate-600 leading-snug">
+                                        {comment.content}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="mt-3 flex gap-2">
+                            <input
+                              value={commentInputs[place.id] ?? ""}
+                              onChange={(e) => updateCommentInput(place.id, e.target.value)}
+                              placeholder="Kommentar schreiben"
+                              className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-brand-green-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleAddComment(place.id)}
+                              disabled={savingCommentId === place.id || !(commentInputs[place.id] || "").trim()}
+                              className="rounded-lg bg-brand-green-700 px-3 py-1.5 text-[10px] font-semibold text-white transition-all disabled:opacity-60 cursor-pointer"
+                            >
+                              {savingCommentId === place.id ? "..." : "Senden"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </ActivityCard>
                   ))
                 ) : (

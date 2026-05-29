@@ -121,14 +121,14 @@ export default function ActivityCard({
 
             {/* Actions & Optional Timestamp (rendered here if no Friend Header exists) */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              {!friend && timestamp && (
-                <span className="text-[10px] text-slate-400 font-medium mr-1">{timestamp}</span>
-              )}
               {isMustSee && (
                 <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[9px] font-bold text-amber-700 ring-1 ring-amber-600/15 shadow-sm">
                   <Sparkles className="h-2.5 w-2.5 text-amber-500 fill-amber-400 animate-pulse" />
                   Must See
                 </span>
+              )}
+              {!friend && timestamp && (
+                <span className="text-[10px] text-slate-400 font-medium mr-1">{timestamp}</span>
               )}
               {actions}
             </div>

@@ -237,30 +237,32 @@ export default function ActivitiesView({
                 friend={activity.friend}
                 imageUrls={activity.imageUrls}
                 actions={
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => toggleComments(activity)}
-                      className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-100 bg-white hover:bg-slate-50 active:scale-90 transition-all cursor-pointer shadow-sm"
-                      title="Kommentare"
-                    >
-                      <MessageCircle className="h-3.5 w-3.5 text-slate-400 hover:text-brand-green-700 transition-colors" />
-                    </button>
-                    <button
-                      onClick={() => toggleWishlist(activity.id)}
-                      className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-100 bg-white hover:bg-slate-50 active:scale-90 transition-all cursor-pointer shadow-sm"
-                      title={wishlistIds.includes(activity.id) ? "Aus Wishlist entfernen" : "In Wishlist speichern"}
-                    >
-                      <Bookmark
-                        className={`h-3.5 w-3.5 transition-colors ${
-                          wishlistIds.includes(activity.id)
-                            ? "text-brand-green-700 fill-brand-green-700"
-                            : "text-slate-400 hover:text-brand-green-700"
-                        }`}
-                      />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => toggleWishlist(activity.id)}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-100 bg-white hover:bg-slate-50 active:scale-90 transition-all cursor-pointer shadow-sm"
+                    title={wishlistIds.includes(activity.id) ? "Aus Wishlist entfernen" : "In Wishlist speichern"}
+                  >
+                    <Bookmark
+                      className={`h-3.5 w-3.5 transition-colors ${
+                        wishlistIds.includes(activity.id)
+                          ? "text-brand-green-700 fill-brand-green-700"
+                          : "text-slate-400 hover:text-brand-green-700"
+                      }`}
+                    />
+                  </button>
                 }
               >
+                <div className="pl-5 pt-3 flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => toggleComments(activity)}
+                    className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-brand-green-800 transition-colors cursor-pointer"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    <span>Kommentare</span>
+                  </button>
+                </div>
+
                 {activeActivity?.id === activity.id && (
                   <div className="mt-4 border-t border-slate-100 pt-4">
                     <div className="flex items-center justify-between text-[10px] text-slate-400">
