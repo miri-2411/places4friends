@@ -100,7 +100,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: [] });
   }
 
-  const url = new URL(`${MAPBOX_GEOCODING_ENDPOINT}/${encodeURIComponent(query)}.json`);
+  const url = new URL("https://api.mapbox.com/search/searchbox/v1/forward");
+  url.searchParams.set("q", query);
   url.searchParams.set("access_token", mapboxToken);
   url.searchParams.set("limit", "8");
   url.searchParams.set("language", "de");
@@ -121,26 +122,24 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const mapMapboxType = (placeTypes: string[]): string => {
-    if (!placeTypes || placeTypes.length === 0) return "poi";
-    const primary = placeTypes[0];
-    if (primary === "country") return "country";
-    if (primary === "region") return "region";
-    if (primary === "place" || primary === "locality") return "city";
-    if (primary === "district") return "region";
-    if (primary === "neighborhood") return "neighborhood";
-    if (primary === "address" || primary === "postcode") return "address";
+  const mapMapboxType = (featureType: string): string => {
+    if (!featureType) return "poi";
+    if (featureType === "country") return "country";
+    if (featureType === "region" || featureType === "district") return "region";
+    if (featureType === "place" || featureType === "locality" || featureType === "city") return "city";
+    if (featureType === "neighborhood") return "neighborhood";
+    if (featureType === "address" || featureType === "postcode" || featureType === "street") return "address";
     return "poi";
   };
 
   const results: PlaceResult[] = (data.features ?? []).map((feature: any) => ({
-    id: feature.id,
-    name: feature.text,
-    address: feature.place_name ?? null,
-    latitude: feature.center?.[1] ?? null,
-    longitude: feature.center?.[0] ?? null,
+    id: feature.properties?.mapbox_id ?? feature.id ?? Math.random().toString(),
+    name: feature.properties?.name ?? feature.properties?.place_name ?? "Unbekannter Ort",
+    address: feature.properties?.full_address ?? feature.properties?.address ?? feature.properties?.place_formatted ?? null,
+    latitude: feature.geometry?.coordinates?.[1] ?? null,
+    longitude: feature.geometry?.coordinates?.[0] ?? null,
     source: "mapbox",
-    type: mapMapboxType(feature.place_type ?? []),
+    type: mapMapboxType(feature.properties?.feature_type),
   }));
 
   return NextResponse.json({ results });

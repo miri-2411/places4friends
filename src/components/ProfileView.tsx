@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Settings, Sparkles, LogOut, MapPin, Pencil, Trash2, X, Check, Bookmark, Loader2, Menu, Shield, FileText, MoreVertical, MessageCircle } from "lucide-react";
+import { Settings, Sparkles, LogOut, MapPin, Pencil, Trash2, X, Check, Bookmark, Loader2, Menu, Shield, FileText, MoreVertical, MessageCircle, Share2 } from "lucide-react";
 import { signout } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/client";
 import ActivityCard from "./ActivityCard";
@@ -93,6 +93,33 @@ export default function ProfileView({
   const [avatarPublicUrl, setAvatarPublicUrl] = useState<string | null>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleShareInviteLink = async () => {
+    if (!user) return;
+    const inviteUrl = `${window.location.origin}/profile/${user.id}?invite=true`;
+    const shareData = {
+      title: "places4friends",
+      text: "Lass uns auf places4friends befreundet sein, um unsere Lieblingsorte auf einer gemeinsamen Karte zu sehen!",
+      url: inviteUrl,
+    };
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error("Error sharing:", err);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(inviteUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error("Failed to copy to clipboard:", err);
+      }
+    }
+  };
   const [isCropOpen, setIsCropOpen] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [cropScale, setCropScale] = useState(1);
@@ -121,6 +148,7 @@ export default function ProfileView({
   const cropCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const cropImageRef = useRef<HTMLImageElement | null>(null);
   const isDraggingRef = useRef(false);
+  const activePointerIdRef = useRef<number | null>(null);
   const lastDragPosRef = useRef<{ x: number; y: number } | null>(null);
 
   const cropPreviewSize = 220;
@@ -341,12 +369,16 @@ export default function ProfileView({
   };
 
   const handleCropPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
     isDraggingRef.current = true;
+    activePointerIdRef.current = event.pointerId;
     lastDragPosRef.current = { x: event.clientX, y: event.clientY };
   };
 
   const handleCropPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isDraggingRef.current || !cropCenter) return;
+    if (!isDraggingRef.current || activePointerIdRef.current !== event.pointerId || !cropCenter) return;
+    event.preventDefault();
     const last = lastDragPosRef.current;
     if (!last) return;
     const settings = getCropSettings();
@@ -364,7 +396,13 @@ export default function ProfileView({
     setCropCenter(next);
   };
 
-  const handleCropPointerUp = () => {
+  const handleCropPointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (activePointerIdRef.current === event.pointerId) {
+      activePointerIdRef.current = null;
+    }
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
     isDraggingRef.current = false;
     lastDragPosRef.current = null;
   };
@@ -719,6 +757,18 @@ export default function ProfileView({
                   <Settings className="h-4.5 w-4.5 text-slate-400" />
                   <span>Einstellungen</span>
                 </Link>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await handleShareInviteLink();
+                    setTimeout(() => setIsMenuOpen(false), 800);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 active:scale-98 transition-all cursor-pointer text-left"
+                >
+                  <Share2 className="h-4.5 w-4.5 text-slate-400" />
+                  <span>{copied ? "Link kopiert!" : "Freunde einladen"}</span>
+                </button>
 
                 <Link
                   href="/datenschutz"
@@ -1230,11 +1280,12 @@ export default function ProfileView({
                 ref={cropCanvasRef}
                 width={cropPreviewSize}
                 height={cropPreviewSize}
-                className="rounded-full border border-slate-200 bg-slate-50"
+                className="touch-none select-none rounded-full border border-slate-200 bg-slate-50 cursor-grab active:cursor-grabbing"
                 onPointerDown={handleCropPointerDown}
                 onPointerMove={handleCropPointerMove}
                 onPointerUp={handleCropPointerUp}
                 onPointerLeave={handleCropPointerUp}
+                onPointerCancel={handleCropPointerUp}
               />
             </div>
 
