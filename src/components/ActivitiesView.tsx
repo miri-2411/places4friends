@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Users, Compass, Bookmark, MessageCircle, Loader2, X } from "lucide-react";
+import { Users, Compass, Bookmark, MessageCircle, Loader2, X, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import ActivityCard from "./ActivityCard";
 import { createClient } from "@/lib/supabase/client";
 
@@ -37,6 +37,7 @@ interface ActivityItem {
   latitude?: number | null;
   longitude?: number | null;
   imageUrls?: string[];
+  commentCount?: number;
 }
 
 export default function ActivitiesView({
@@ -51,10 +52,21 @@ export default function ActivitiesView({
   const [userId, setUserId] = useState<string | null>(null);
   const [activeActivity, setActiveActivity] = useState<ActivityItem | null>(null);
   const [comments, setComments] = useState<ActivityComment[]>([]);
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>(() => {
+    const initialCounts: Record<string, number> = {};
+    activities.forEach((act) => {
+      initialCounts[act.id] = act.commentCount ?? 0;
+    });
+    return initialCounts;
+  });
   const [commentInput, setCommentInput] = useState("");
   const [commentError, setCommentError] = useState<string | null>(null);
   const [isCommentsLoading, setIsCommentsLoading] = useState(false);
   const [isCommentSaving, setIsCommentSaving] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentInput, setEditingCommentInput] = useState("");
+  const [commentDeletingId, setCommentDeletingId] = useState<string | null>(null);
+  const [activeCommentMenuId, setActiveCommentMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     setWishlistIds(initialWishlistedIds);
@@ -156,6 +168,10 @@ export default function ActivitiesView({
         } as ActivityComment;
       });
       setComments(loaded);
+      setCommentCounts((prev) => ({
+        ...prev,
+        [activityId]: loaded.length,
+      }));
     }
 
     setIsCommentsLoading(false);
@@ -203,6 +219,61 @@ export default function ActivitiesView({
     setIsCommentSaving(false);
   };
 
+  const startEditComment = (comment: ActivityComment) => {
+    setEditingCommentId(comment.id);
+    setEditingCommentInput(comment.content);
+  };
+
+  const cancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditingCommentInput("");
+  };
+
+  const handleUpdateComment = async (activityId: string, commentId: string) => {
+    const content = editingCommentInput.trim();
+    if (!content) {
+      setCommentError("Kommentar fehlt.");
+      return;
+    }
+
+    setIsCommentSaving(true);
+    setCommentError(null);
+
+    const { error } = await supabase
+      .from("activity_comments")
+      .update({ content })
+      .eq("id", commentId);
+
+    if (error) {
+      setCommentError("Kommentar konnte nicht gespeichert werden.");
+    } else {
+      cancelEditComment();
+      await fetchComments(activityId);
+    }
+
+    setIsCommentSaving(false);
+  };
+
+  const handleDeleteComment = async (activityId: string, commentId: string) => {
+    if (!globalThis.confirm("Kommentar wirklich löschen?")) return;
+
+    setCommentDeletingId(commentId);
+    setCommentError(null);
+
+    const { error } = await supabase
+      .from("activity_comments")
+      .delete()
+      .eq("id", commentId);
+
+    if (error) {
+      setCommentError("Kommentar konnte nicht gelöscht werden.");
+    } else {
+      await fetchComments(activityId);
+    }
+
+    setCommentDeletingId(null);
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-50/50 pb-20 font-sans">
       {/* Header */}
@@ -211,15 +282,6 @@ export default function ActivitiesView({
       </header>
 
       <div className="flex-grow overflow-y-auto px-4 pt-6 page-transition">
-        {/* Title & Description */}
-        <div className="mb-6">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">
-            Feed deiner Freunde
-          </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Hier siehst du die neuesten Empfehlungen von Leuten, denen du folgst.
-          </p>
-        </div>
         {/* Activities List */}
         <div className="space-y-4 pb-8">
           {activities.length > 0 ? (
@@ -236,45 +298,43 @@ export default function ActivitiesView({
                 timestamp={activity.timestamp}
                 friend={activity.friend}
                 imageUrls={activity.imageUrls}
-                actions={
-                  <button
-                    onClick={() => toggleWishlist(activity.id)}
-                    className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-100 bg-white hover:bg-slate-50 active:scale-90 transition-all cursor-pointer shadow-sm"
-                    title={wishlistIds.includes(activity.id) ? "Aus Wishlist entfernen" : "In Wishlist speichern"}
-                  >
-                    <Bookmark
-                      className={`h-3.5 w-3.5 transition-colors ${
+                bottomLeftActions={
+                  <>
+                    <button
+                      onClick={() => toggleWishlist(activity.id)}
+                      className={`flex items-center justify-center active:scale-90 transition-all cursor-pointer p-1 ${
                         wishlistIds.includes(activity.id)
-                          ? "text-brand-green-700 fill-brand-green-700"
-                          : "text-slate-400 hover:text-brand-green-700"
+                          ? "text-brand-green-700"
+                          : "text-slate-500 hover:text-brand-green-800"
                       }`}
-                    />
-                  </button>
+                      title={wishlistIds.includes(activity.id) ? "Aus Wishlist entfernen" : "In Wishlist speichern"}
+                    >
+                      <Bookmark
+                        className="h-5 w-5 transition-colors"
+                        fill={wishlistIds.includes(activity.id) ? "currentColor" : "none"}
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleComments(activity)}
+                      className="flex items-center gap-1.5 justify-center text-slate-500 hover:text-brand-green-800 active:scale-90 transition-all cursor-pointer p-1"
+                      title="Kommentare"
+                    >
+                      <MessageCircle className="h-4.5 w-4.5 transition-colors" />
+                      {(commentCounts[activity.id] ?? 0) > 0 && (
+                        <span className="text-[11px] font-semibold select-none">
+                          {commentCounts[activity.id]}
+                        </span>
+                      )}
+                    </button>
+                  </>
                 }
               >
-                <div className="pl-5 pt-3 flex items-center">
-                  <button
-                    type="button"
-                    onClick={() => toggleComments(activity)}
-                    className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-brand-green-800 transition-colors cursor-pointer"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    <span>Kommentare</span>
-                  </button>
-                </div>
 
                 {activeActivity?.id === activity.id && (
-                  <div className="mt-4 border-t border-slate-100 pt-4">
+                  <div className="mt-4 pt-1">
                     <div className="flex items-center justify-between text-[10px] text-slate-400">
                       <span className="font-semibold uppercase tracking-wide">Kommentare</span>
-                      <button
-                        type="button"
-                        onClick={() => toggleComments(activity)}
-                        className="rounded-full p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-                        aria-label="Kommentare schliessen"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
                     </div>
 
                     {commentError && (
@@ -289,34 +349,111 @@ export default function ActivitiesView({
                         Kommentare werden geladen...
                       </div>
                     ) : comments.length === 0 ? (
-                      <div className="mt-2 text-[11px] text-slate-500">Noch keine Kommentare.</div>
-                    ) : (
+                      <div className="mt-2 text-[11px] text-slate-500">Noch keine Kommentare.</div>                     ) : (
                       <div className="mt-3 space-y-3">
                         {comments.map((comment) => (
                           <div key={comment.id} className="flex gap-2">
-                            <div className={`flex h-6 w-6 items-center justify-center overflow-hidden rounded-full text-[9px] font-bold text-white ${comment.userColor}`}>
-                              {comment.userAvatarUrl ? (
-                                <img
-                                  src={comment.userAvatarUrl}
-                                  alt="Profilbild"
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                comment.userInitials
-                              )}
-                            </div>
+                            <Link href={`/profile/${comment.userId}`} className="flex-shrink-0 hover:opacity-80 active:scale-[0.98] transition-all cursor-pointer">
+                              <div className={`flex h-6 w-6 items-center justify-center overflow-hidden rounded-full font-bold text-[9px] flex-shrink-0 ${
+                                comment.userAvatarUrl 
+                                  ? "bg-gradient-to-tr from-brand-green-700 to-brand-green-500 text-white" 
+                                  : `${comment.userColor} text-white`
+                              }`}>
+                                {comment.userAvatarUrl ? (
+                                  <img
+                                    src={comment.userAvatarUrl}
+                                    alt="Profilbild"
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  comment.userInitials
+                                )}
+                              </div>
+                            </Link>
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-semibold text-slate-700">
-                                  {comment.userName}
-                                </span>
+                                <Link href={`/profile/${comment.userId}`} className="hover:text-brand-green-700 hover:underline cursor-pointer">
+                                  <span className="text-[11px] font-semibold text-slate-700">
+                                    {comment.userName}
+                                  </span>
+                                </Link>
                                 <span className="text-[9px] text-slate-400">
                                   {formatCommentTimestamp(comment.createdAt)}
                                 </span>
+                                {userId === comment.userId && editingCommentId !== comment.id && (
+                                  <div className="ml-auto relative">
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveCommentMenuId(activeCommentMenuId === comment.id ? null : comment.id)}
+                                      className="flex h-5 w-5 items-center justify-center rounded-lg text-slate-450 hover:bg-slate-50 hover:text-slate-700 transition-all cursor-pointer"
+                                      title="Kommentaroptionen"
+                                    >
+                                      <MoreVertical className="h-3.5 w-3.5" />
+                                    </button>
+
+                                    {activeCommentMenuId === comment.id && (
+                                      <>
+                                        <div
+                                          className="fixed inset-0 z-35 bg-transparent"
+                                          onClick={() => setActiveCommentMenuId(null)}
+                                        />
+                                        <div className="absolute right-0 top-full mt-0.5 w-28 origin-top-right rounded-xl border border-slate-100 bg-white p-1 shadow-lg ring-1 ring-black/5 z-40 animate-in fade-in slide-in-from-top-1 duration-100">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActiveCommentMenuId(null);
+                                              startEditComment(comment);
+                                            }}
+                                            className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-50 active:scale-98 transition-all cursor-pointer text-left"
+                                          >
+                                            <Pencil className="h-3 w-3 text-slate-400" />
+                                            <span>Bearbeiten</span>
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActiveCommentMenuId(null);
+                                              handleDeleteComment(activity.id, comment.id);
+                                            }}
+                                            className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-semibold text-rose-650 hover:bg-rose-50 active:scale-98 transition-all cursor-pointer text-left"
+                                          >
+                                            <Trash2 className="h-3 w-3 text-rose-500" />
+                                            <span>Löschen</span>
+                                          </button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
                               </div>
-                              <p className="text-[11px] text-slate-600 leading-snug">
-                                {comment.content}
-                              </p>
+                              {editingCommentId === comment.id ? (
+                                <div className="mt-1 flex gap-2">
+                                  <input
+                                    value={editingCommentInput}
+                                    onChange={(e) => setEditingCommentInput(e.target.value)}
+                                    className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 outline-none focus:border-brand-green-500"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateComment(activity.id, comment.id)}
+                                    disabled={isCommentSaving || editingCommentInput.trim().length === 0}
+                                    className="rounded-lg bg-brand-green-700 px-2 py-1 text-[9px] font-semibold text-white disabled:opacity-60 cursor-pointer"
+                                  >
+                                    {isCommentSaving ? "..." : "OK"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditComment}
+                                    className="rounded-lg border border-slate-200 px-2 py-1 text-[9px] font-semibold text-slate-500 cursor-pointer"
+                                  >
+                                    X
+                                  </button>
+                                </div>
+                              ) : (
+                                <p className="text-[11px] text-slate-600 leading-snug">
+                                  {comment.content}
+                                </p>
+                              )}
                             </div>
                           </div>
                         ))}

@@ -113,6 +113,7 @@ export default function ProfileView({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentInput, setEditingCommentInput] = useState("");
   const [commentDeletingId, setCommentDeletingId] = useState<string | null>(null);
+  const [activeCommentMenuId, setActiveCommentMenuId] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
@@ -569,7 +570,7 @@ export default function ProfileView({
     const { data, error } = await supabase
       .from("activity_comments")
       .select(
-        "id, activity_id, user_id, content, created_at, profiles:profiles!activity_comments_user_id_fkey(id, username, full_name)"
+        "id, activity_id, user_id, content, created_at, profiles:profiles!activity_comments_user_id_fkey(id, username, full_name, avatar_url)"
       )
       .eq("activity_id", placeId)
       .order("created_at", { ascending: true });
@@ -590,6 +591,12 @@ export default function ProfileView({
         .join("")
         .toUpperCase() || "?";
 
+      let avatarUrl: string | null = null;
+      if (profile?.avatar_url) {
+        const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(profile.avatar_url);
+        avatarUrl = `${urlData?.publicUrl}?t=${Date.now()}`;
+      }
+
       return {
         id: row.id,
         activityId: row.activity_id,
@@ -599,6 +606,7 @@ export default function ProfileView({
         userColor: getUserColorClass(row.user_id),
         content: row.content,
         createdAt: row.created_at,
+        userAvatarUrl: avatarUrl,
       } as ActivityComment;
     });
 
@@ -969,6 +977,21 @@ export default function ProfileView({
                           </div>
                         )
                       }
+                      bottomLeftActions={
+                        <button
+                          type="button"
+                          onClick={() => toggleComments(place.id)}
+                          className="flex items-center gap-1.5 justify-center text-slate-500 hover:text-brand-green-800 active:scale-90 transition-all cursor-pointer p-1"
+                          title="Kommentare"
+                        >
+                          <MessageCircle className="h-4.5 w-4.5 transition-colors" />
+                          {(commentsByPlace[place.id]?.length ?? 0) > 0 && (
+                            <span className="text-[11px] font-semibold select-none">
+                              {commentsByPlace[place.id].length}
+                            </span>
+                          )}
+                        </button>
+                      }
                     >
                       {editingId === place.id && actionError && (
                         <div className="mt-2 rounded-lg border border-red-100 bg-red-50 px-2.5 py-2 text-[11px] text-red-700">
@@ -976,26 +999,10 @@ export default function ProfileView({
                         </div>
                       )}
 
-                      {editingId !== place.id && (
-                        <div className="pl-5 pt-3 flex items-center">
-                          <button
-                            type="button"
-                            onClick={() => toggleComments(place.id)}
-                            className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-brand-green-800 transition-colors cursor-pointer"
-                          >
-                            <MessageCircle className="h-4 w-4" />
-                            <span>
-                              {commentsByPlace[place.id]?.length ?? 0} {commentsByPlace[place.id]?.length === 1 ? "Kommentar" : "Kommentare"}
-                            </span>
-                          </button>
-                        </div>
-                      )}
-
                       {expandedComments[place.id] && (
-                        <div className="mt-4 border-t border-slate-100 pt-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="mt-4 pt-1 animate-in fade-in slide-in-from-top-2 duration-200">
                           <div className="flex items-center justify-between text-[10px] text-slate-400">
                             <span className="font-semibold uppercase tracking-wide">Kommentare</span>
-                            <span>{commentsByPlace[place.id]?.length ?? 0}</span>
                           </div>
 
                           {commentErrors[place.id] && (
@@ -1016,42 +1023,76 @@ export default function ProfileView({
                             <div className="mt-2 space-y-2">
                               {(commentsByPlace[place.id] ?? []).map((comment) => (
                                 <div key={comment.id} className="flex gap-2">
-                                  {comment.userAvatarUrl ? (
-                                    <img
-                                      src={comment.userAvatarUrl}
-                                      alt={comment.userName}
-                                      className="h-5 w-5 rounded-full object-cover flex-shrink-0"
-                                    />
-                                  ) : (
-                                    <div className={`flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white flex-shrink-0 ${comment.userColor}`}>
-                                      {comment.userInitials}
+                                  <Link href={`/profile/${comment.userId}`} className="flex-shrink-0 hover:opacity-80 active:scale-[0.98] transition-all cursor-pointer">
+                                    <div className={`flex h-5 w-5 items-center justify-center overflow-hidden rounded-full font-bold text-[8px] flex-shrink-0 ${
+                                      comment.userAvatarUrl 
+                                        ? "bg-gradient-to-tr from-brand-green-700 to-brand-green-500 text-white" 
+                                        : `${comment.userColor} text-white`
+                                    }`}>
+                                      {comment.userAvatarUrl ? (
+                                        <img
+                                          src={comment.userAvatarUrl}
+                                          alt="Profilbild"
+                                          className="h-full w-full object-cover"
+                                        />
+                                      ) : (
+                                        comment.userInitials
+                                      )}
                                     </div>
-                                  )}
+                                  </Link>
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2">
-                                      <span className="text-[10px] font-semibold text-slate-700">
-                                        {comment.userName}
-                                      </span>
+                                      <Link href={`/profile/${comment.userId}`} className="hover:text-brand-green-700 hover:underline cursor-pointer">
+                                        <span className="text-[10px] font-semibold text-slate-700">
+                                          {comment.userName}
+                                        </span>
+                                      </Link>
                                       <span className="text-[9px] text-slate-400">
                                         {formatCommentTimestamp(comment.createdAt)}
                                       </span>
                                       {user?.id === comment.userId && editingCommentId !== comment.id && (
-                                        <div className="ml-auto flex items-center gap-1">
+                                        <div className="ml-auto relative">
                                           <button
                                             type="button"
-                                            onClick={() => startEditComment(comment)}
-                                            className="text-[9px] font-semibold text-slate-500 hover:text-slate-700 cursor-pointer"
+                                            onClick={() => setActiveCommentMenuId(activeCommentMenuId === comment.id ? null : comment.id)}
+                                            className="flex h-5 w-5 items-center justify-center rounded-lg text-slate-450 hover:bg-slate-50 hover:text-slate-700 transition-all cursor-pointer"
+                                            title="Kommentaroptionen"
                                           >
-                                            Bearbeiten
+                                            <MoreVertical className="h-3.5 w-3.5" />
                                           </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleDeleteComment(place.id, comment.id)}
-                                            disabled={commentDeletingId === comment.id}
-                                            className="text-[9px] font-semibold text-red-500 hover:text-red-600 disabled:opacity-60 cursor-pointer"
-                                          >
-                                            Löschen
-                                          </button>
+
+                                          {activeCommentMenuId === comment.id && (
+                                            <>
+                                              <div
+                                                className="fixed inset-0 z-35 bg-transparent"
+                                                onClick={() => setActiveCommentMenuId(null)}
+                                              />
+                                              <div className="absolute right-0 top-full mt-0.5 w-28 origin-top-right rounded-xl border border-slate-100 bg-white p-1 shadow-lg ring-1 ring-black/5 z-40 animate-in fade-in slide-in-from-top-1 duration-100">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setActiveCommentMenuId(null);
+                                                    startEditComment(comment);
+                                                  }}
+                                                  className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-50 active:scale-98 transition-all cursor-pointer text-left"
+                                                >
+                                                  <Pencil className="h-3 w-3 text-slate-400" />
+                                                  <span>Bearbeiten</span>
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setActiveCommentMenuId(null);
+                                                    handleDeleteComment(place.id, comment.id);
+                                                  }}
+                                                  className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-semibold text-rose-650 hover:bg-rose-50 active:scale-98 transition-all cursor-pointer text-left"
+                                                >
+                                                  <Trash2 className="h-3 w-3 text-rose-500" />
+                                                  <span>Löschen</span>
+                                                </button>
+                                              </div>
+                                            </>
+                                          )}
                                         </div>
                                       )}
                                     </div>
@@ -1140,13 +1181,13 @@ export default function ProfileView({
                     timestamp={item.timestamp}
                     friend={item.friend}
                     imageUrls={item.imageUrls}
-                    actions={
+                    bottomLeftActions={
                       <button
                         onClick={() => handleRemoveFromWishlist(item.activityId)}
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-100 bg-white hover:bg-slate-50 active:scale-90 transition-all cursor-pointer shadow-sm text-brand-green-700"
+                        className="flex items-center justify-center text-brand-green-700 active:scale-90 transition-all cursor-pointer p-1"
                         title="Aus Wishlist entfernen"
                       >
-                        <Bookmark className="h-3.5 w-3.5 fill-brand-green-700 text-brand-green-700" />
+                        <Bookmark className="h-5 w-5 transition-colors" fill="currentColor" />
                       </button>
                     }
                   />

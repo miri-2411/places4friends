@@ -2,9 +2,21 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Bookmark, MapPin, X, Loader2, UserPlus, UserCheck, Clock, UserMinus } from "lucide-react";
+import { ArrowLeft, Bookmark, MapPin, X, Loader2, UserPlus, UserCheck, Clock, UserMinus, MessageCircle, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import ActivityCard from "./ActivityCard";
 import { createClient } from "@/lib/supabase/client";
+
+interface ActivityComment {
+  id: string;
+  activityId: string;
+  userId: string;
+  userName: string;
+  userInitials: string;
+  userColor: string;
+  userAvatarUrl?: string | null;
+  content: string;
+  createdAt: string;
+}
 
 interface User {
   id: string;
@@ -57,6 +69,16 @@ export default function PublicProfileView({
   const [friendship, setFriendship] = useState<Friendship | null>(initialFriendship);
   const [isSubmittingFriendship, setIsSubmittingFriendship] = useState(false);
   const [localFriendsCount, setLocalFriendsCount] = useState(friendsCount);
+  const [commentsByPlace, setCommentsByPlace] = useState<Record<string, ActivityComment[]>>({});
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [commentErrors, setCommentErrors] = useState<Record<string, string | null>>({});
+  const [loadingComments, setLoadingComments] = useState<Record<string, boolean>>({});
+  const [savingCommentId, setSavingCommentId] = useState<string | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentInput, setEditingCommentInput] = useState("");
+  const [commentDeletingId, setCommentDeletingId] = useState<string | null>(null);
+  const [activeCommentMenuId, setActiveCommentMenuId] = useState<string | null>(null);
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const supabase = createClient();
 
   useEffect(() => {
@@ -198,6 +220,222 @@ export default function PublicProfileView({
     const { data } = supabase.storage.from("avatars").getPublicUrl(friend.avatarUrl);
     setAvatarPublicUrl(`${data.publicUrl}?t=${Date.now()}`);
   }, [friend.avatarUrl]);
+
+  useEffect(() => {
+    if (places.length === 0) {
+      setCommentsByPlace({});
+      return;
+    }
+
+    const activityIds = places.map((item) => item.id);
+    let isActive = true;
+
+    const loadComments = async () => {
+      const { data, error } = await supabase
+        .from("activity_comments")
+        .select(
+          "id, activity_id, user_id, content, created_at, profiles:profiles!activity_comments_user_id_fkey(id, username, full_name, avatar_url)"
+        )
+        .in("activity_id", activityIds)
+        .order("created_at", { ascending: true });
+
+      if (!isActive) return;
+
+      if (error) {
+        setCommentsByPlace({});
+        return;
+      }
+
+      const grouped: Record<string, ActivityComment[]> = {};
+      (data || []).forEach((row: any) => {
+        const profile = row.profiles;
+        const name = profile?.full_name ?? profile?.username ?? "Nutzer";
+        const initials = name
+          .split(" ")
+          .map((n: string) => n[0])
+          .slice(0, 2)
+          .join("")
+          .toUpperCase() || "?";
+
+        let avatarUrl: string | null = null;
+        if (profile?.avatar_url) {
+          const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(profile.avatar_url);
+          avatarUrl = urlData?.publicUrl ?? null;
+        }
+
+        const comment: ActivityComment = {
+          id: row.id,
+          activityId: row.activity_id,
+          userId: row.user_id,
+          userName: name,
+          userInitials: initials,
+          userColor: getUserColorClass(row.user_id),
+          content: row.content,
+          createdAt: row.created_at,
+          userAvatarUrl: avatarUrl,
+        };
+
+        if (!grouped[comment.activityId]) {
+          grouped[comment.activityId] = [];
+        }
+        grouped[comment.activityId].push(comment);
+      });
+
+      setCommentsByPlace(grouped);
+    };
+
+    loadComments().catch(() => {
+      if (!isActive) return;
+      setCommentsByPlace({});
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [places, currentUserId]);
+
+  const toggleComments = (placeId: string) => {
+    setExpandedComments((prev) => ({
+      ...prev,
+      [placeId]: !prev[placeId],
+    }));
+  };
+
+  const updateCommentInput = (placeId: string, value: string) => {
+    setCommentInputs((prev) => ({ ...prev, [placeId]: value }));
+  };
+
+  const startEditComment = (comment: ActivityComment) => {
+    setEditingCommentId(comment.id);
+    setEditingCommentInput(comment.content);
+  };
+
+  const cancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditingCommentInput("");
+  };
+
+  const reloadCommentsForPlace = async (placeId: string) => {
+    setLoadingComments((prev) => ({ ...prev, [placeId]: true }));
+    const { data, error } = await supabase
+      .from("activity_comments")
+      .select(
+        "id, activity_id, user_id, content, created_at, profiles:profiles!activity_comments_user_id_fkey(id, username, full_name, avatar_url)"
+      )
+      .eq("activity_id", placeId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      setCommentErrors((prev) => ({ ...prev, [placeId]: "Kommentare konnten nicht geladen werden." }));
+      setLoadingComments((prev) => ({ ...prev, [placeId]: false }));
+      return;
+    }
+
+    const loaded = (data || []).map((row: any) => {
+      const profile = row.profiles;
+      const name = profile?.full_name ?? profile?.username ?? "Nutzer";
+      const initials = name
+        .split(" ")
+        .map((n: string) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "?";
+
+      let avatarUrl: string | null = null;
+      if (profile?.avatar_url) {
+        const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(profile.avatar_url);
+        avatarUrl = `${urlData?.publicUrl}?t=${Date.now()}`;
+      }
+
+      return {
+        id: row.id,
+        activityId: row.activity_id,
+        userId: row.user_id,
+        userName: name,
+        userInitials: initials,
+        userColor: getUserColorClass(row.user_id),
+        content: row.content,
+        createdAt: row.created_at,
+        userAvatarUrl: avatarUrl,
+      } as ActivityComment;
+    });
+
+    setCommentsByPlace((prev) => ({ ...prev, [placeId]: loaded }));
+    setCommentErrors((prev) => ({ ...prev, [placeId]: null }));
+    setLoadingComments((prev) => ({ ...prev, [placeId]: false }));
+  };
+
+  const handleAddComment = async (placeId: string) => {
+    if (!currentUserId) return;
+    const content = (commentInputs[placeId] || "").trim();
+    if (!content) {
+      setCommentErrors((prev) => ({ ...prev, [placeId]: "Kommentar fehlt." }));
+      return;
+    }
+
+    setSavingCommentId(placeId);
+    setCommentErrors((prev) => ({ ...prev, [placeId]: null }));
+
+    const { error } = await supabase.from("activity_comments").insert({
+      activity_id: placeId,
+      user_id: currentUserId,
+      content,
+    });
+
+    if (error) {
+      setCommentErrors((prev) => ({ ...prev, [placeId]: "Kommentar konnte nicht gespeichert werden." }));
+    } else {
+      setCommentInputs((prev) => ({ ...prev, [placeId]: "" }));
+      await reloadCommentsForPlace(placeId);
+    }
+
+    setSavingCommentId(null);
+  };
+
+  const handleUpdateComment = async (placeId: string, commentId: string) => {
+    const content = editingCommentInput.trim();
+    if (!content) {
+      setCommentErrors((prev) => ({ ...prev, [placeId]: "Kommentar fehlt." }));
+      return;
+    }
+
+    setSavingCommentId(placeId);
+    setCommentErrors((prev) => ({ ...prev, [placeId]: null }));
+
+    const { error } = await supabase
+      .from("activity_comments")
+      .update({ content })
+      .eq("id", commentId);
+
+    if (error) {
+      setCommentErrors((prev) => ({ ...prev, [placeId]: "Kommentar konnte nicht gespeichert werden." }));
+    } else {
+      cancelEditComment();
+      await reloadCommentsForPlace(placeId);
+    }
+
+    setSavingCommentId(null);
+  };
+
+  const handleDeleteComment = async (placeId: string, commentId: string) => {
+    if (!globalThis.confirm("Kommentar wirklich löschen?")) return;
+
+    setCommentDeletingId(commentId);
+    setCommentErrors((prev) => ({ ...prev, [placeId]: null }));
+
+    const { error } = await supabase
+      .from("activity_comments")
+      .delete()
+      .eq("id", commentId);
+
+    if (error) {
+      setCommentErrors((prev) => ({ ...prev, [placeId]: "Kommentar konnte nicht gelöscht werden." }));
+    } else {
+      await reloadCommentsForPlace(placeId);
+    }
+
+    setCommentDeletingId(null);
+  };
 
   const toggleWishlist = async (activityId: string) => {
     const isSaved = wishlistIds.includes(activityId);
@@ -348,22 +586,194 @@ export default function PublicProfileView({
                     categories={place.categories}
                     timestamp={place.timestamp}
                     imageUrls={place.imageUrls}
-                    actions={
-                      <button
-                        onClick={() => toggleWishlist(place.id)}
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-100 bg-white hover:bg-slate-50 active:scale-90 transition-all cursor-pointer shadow-sm"
-                        title={wishlistIds.includes(place.id) ? "Aus Wishlist entfernen" : "In Wishlist speichern"}
-                      >
-                        <Bookmark
-                          className={`h-3.5 w-3.5 transition-colors ${
+                    bottomLeftActions={
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => toggleWishlist(place.id)}
+                          className={`flex items-center justify-center active:scale-90 transition-all cursor-pointer p-1 ${
                             wishlistIds.includes(place.id)
-                              ? "text-brand-green-700 fill-brand-green-700"
-                              : "text-slate-400 hover:text-brand-green-700"
+                              ? "text-brand-green-700"
+                              : "text-slate-500 hover:text-brand-green-800"
                           }`}
-                        />
-                      </button>
+                          title={wishlistIds.includes(place.id) ? "Aus Wishlist entfernen" : "In Wishlist speichern"}
+                        >
+                          <Bookmark
+                            className="h-5 w-5 transition-colors"
+                            fill={wishlistIds.includes(place.id) ? "currentColor" : "none"}
+                          />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleComments(place.id)}
+                          className="flex items-center gap-1.5 justify-center text-slate-500 hover:text-brand-green-800 active:scale-90 transition-all cursor-pointer p-1"
+                          title="Kommentare"
+                        >
+                          <MessageCircle className="h-4.5 w-4.5 transition-colors" />
+                          {(commentsByPlace[place.id]?.length ?? 0) > 0 && (
+                            <span className="text-[11px] font-semibold select-none">
+                              {commentsByPlace[place.id].length}
+                            </span>
+                          )}
+                        </button>
+                      </div>
                     }
-                  />
+                  >
+                    {expandedComments[place.id] && (
+                      <div className="mt-4 pt-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="flex items-center justify-between text-[10px] text-slate-400">
+                          <span className="font-semibold uppercase tracking-wide">Kommentare</span>
+                        </div>
+
+                        {commentErrors[place.id] && (
+                          <div className="mt-2 rounded-lg border border-red-100 bg-red-50 px-2.5 py-1.5 text-[10px] text-red-700">
+                            {commentErrors[place.id]}
+                          </div>
+                        )}
+
+                        {loadingComments[place.id] ? (
+                          <div className="mt-2 text-[10px] text-slate-500">
+                            Kommentare werden geladen...
+                          </div>
+                        ) : (commentsByPlace[place.id] ?? []).length === 0 ? (
+                          <div className="mt-2 text-[10px] text-slate-500">
+                            Noch keine Kommentare.
+                          </div>
+                        ) : (
+                          <div className="mt-2 space-y-2">
+                            {(commentsByPlace[place.id] ?? []).map((comment) => (
+                              <div key={comment.id} className="flex gap-2">
+                                <Link href={`/profile/${comment.userId}`} className="flex-shrink-0 hover:opacity-80 active:scale-[0.98] transition-all cursor-pointer">
+                                  <div className={`flex h-5 w-5 items-center justify-center overflow-hidden rounded-full font-bold text-[8px] flex-shrink-0 ${
+                                    comment.userAvatarUrl 
+                                      ? "bg-gradient-to-tr from-brand-green-700 to-brand-green-500 text-white" 
+                                      : `${comment.userColor} text-white`
+                                  }`}>
+                                    {comment.userAvatarUrl ? (
+                                      <img
+                                        src={comment.userAvatarUrl}
+                                        alt="Profilbild"
+                                        className="h-full w-full object-cover"
+                                      />
+                                    ) : (
+                                      comment.userInitials
+                                    )}
+                                  </div>
+                                </Link>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <Link href={`/profile/${comment.userId}`} className="hover:text-brand-green-700 hover:underline cursor-pointer">
+                                      <span className="text-[10px] font-semibold text-slate-700">
+                                        {comment.userName}
+                                      </span>
+                                    </Link>
+                                    <span className="text-[9px] text-slate-400">
+                                      {formatCommentTimestamp(comment.createdAt)}
+                                    </span>
+                                    {currentUserId === comment.userId && editingCommentId !== comment.id && (
+                                      <div className="ml-auto relative">
+                                        <button
+                                          type="button"
+                                          onClick={() => setActiveCommentMenuId(activeCommentMenuId === comment.id ? null : comment.id)}
+                                          className="flex h-5 w-5 items-center justify-center rounded-lg text-slate-450 hover:bg-slate-50 hover:text-slate-700 transition-all cursor-pointer"
+                                          title="Kommentaroptionen"
+                                        >
+                                          <MoreVertical className="h-3.5 w-3.5" />
+                                        </button>
+
+                                        {activeCommentMenuId === comment.id && (
+                                          <>
+                                            <div
+                                              className="fixed inset-0 z-35 bg-transparent"
+                                              onClick={() => setActiveCommentMenuId(null)}
+                                            />
+                                            <div className="absolute right-0 top-full mt-0.5 w-28 origin-top-right rounded-xl border border-slate-100 bg-white p-1 shadow-lg ring-1 ring-black/5 z-40 animate-in fade-in slide-in-from-top-1 duration-100">
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setActiveCommentMenuId(null);
+                                                  startEditComment(comment);
+                                                }}
+                                                className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-50 active:scale-98 transition-all cursor-pointer text-left"
+                                              >
+                                                <Pencil className="h-3 w-3 text-slate-400" />
+                                                <span>Bearbeiten</span>
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setActiveCommentMenuId(null);
+                                                  handleDeleteComment(place.id, comment.id);
+                                                }}
+                                                className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-semibold text-rose-650 hover:bg-rose-50 active:scale-98 transition-all cursor-pointer text-left"
+                                              >
+                                                <Trash2 className="h-3 w-3 text-rose-500" />
+                                                <span>Löschen</span>
+                                              </button>
+                                            </div>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                  {editingCommentId === comment.id ? (
+                                    <div className="mt-1 flex gap-2">
+                                      <input
+                                        value={editingCommentInput}
+                                        onChange={(e) => setEditingCommentInput(e.target.value)}
+                                        className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 outline-none focus:border-brand-green-500"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateComment(place.id, comment.id)}
+                                        disabled={savingCommentId === place.id || editingCommentInput.trim().length === 0}
+                                        className="rounded-lg bg-brand-green-700 px-2 py-1 text-[9px] font-semibold text-white disabled:opacity-60 cursor-pointer"
+                                      >
+                                        {savingCommentId === place.id ? "..." : "OK"}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={cancelEditComment}
+                                        className="rounded-lg border border-slate-200 px-2 py-1 text-[9px] font-semibold text-slate-500 cursor-pointer"
+                                      >
+                                        X
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <p className="text-[11px] text-slate-600 leading-snug">
+                                      {comment.content}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {currentUserId ? (
+                          <div className="mt-3 flex gap-2">
+                            <input
+                              value={commentInputs[place.id] ?? ""}
+                              onChange={(e) => updateCommentInput(place.id, e.target.value)}
+                              placeholder="Kommentar schreiben"
+                              className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-brand-green-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleAddComment(place.id)}
+                              disabled={savingCommentId === place.id || !(commentInputs[place.id] || "").trim()}
+                              className="rounded-lg bg-brand-green-700 px-3 py-1.5 text-[10px] font-semibold text-white transition-all disabled:opacity-60 cursor-pointer"
+                            >
+                              {savingCommentId === place.id ? "..." : "Senden"}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="mt-3 text-[10px] text-slate-500">
+                            Melde dich an, um zu kommentieren.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </ActivityCard>
                 ))
               ) : (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center">
@@ -459,4 +869,51 @@ export default function PublicProfileView({
       )}
     </div>
   );
+}
+
+function getUserColorClass(userId: string): string {
+  const colors = [
+    "bg-emerald-600",
+    "bg-rose-500",
+    "bg-amber-600",
+    "bg-blue-600",
+    "bg-indigo-600",
+    "bg-violet-600",
+    "bg-fuchsia-600",
+    "bg-cyan-600",
+  ];
+  let sum = 0;
+  for (let i = 0; i < userId.length; i++) {
+    sum += userId.charCodeAt(i);
+  }
+  return colors[sum % colors.length];
+}
+
+function formatCommentTimestamp(dateStr: string) {
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return "";
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 60) {
+    return `vor ${Math.max(1, diffMins)} Min.`;
+  }
+  if (diffHours < 24) {
+    return `vor ${diffHours} Std.`;
+  }
+  if (diffDays === 1) {
+    return "gestern";
+  }
+  if (diffDays < 7) {
+    return `vor ${diffDays} Tagen`;
+  }
+
+  return date.toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }

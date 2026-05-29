@@ -94,6 +94,17 @@ export default async function ActivitiesPage() {
       .order("created_at", { ascending: false });
     
     if (data) {
+      const activityIds = data.map((act) => act.id);
+      const { data: commentsData } = await supabase
+        .from("activity_comments")
+        .select("activity_id")
+        .in("activity_id", activityIds);
+
+      const commentCountMap: Record<string, number> = {};
+      (commentsData || []).forEach((c: any) => {
+        commentCountMap[c.activity_id] = (commentCountMap[c.activity_id] || 0) + 1;
+      });
+
       activities = data.map((act) => {
         const friend = friends.find((f: any) => f.id === act.user_id);
         const name = friend?.full_name ?? friend?.username ?? "Freund";
@@ -117,6 +128,7 @@ export default async function ActivitiesPage() {
           categories: Array.isArray(act.categories) ? act.categories : [],
           imageUrls: Array.isArray(act.image_urls) ? act.image_urls : [],
           timestamp: formatTimestamp(act.created_at),
+          commentCount: commentCountMap[act.id] || 0,
           friend: {
             id: act.user_id,
             name,

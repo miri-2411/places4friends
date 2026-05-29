@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import Map, { Marker, Popup } from "react-map-gl/mapbox";
-import { Search, Users, MapPin, Sparkles, Layers, Loader2, Bookmark, UserPlus, MessageCircle, X, Locate, SlidersHorizontal } from "lucide-react";
+import { Search, Users, MapPin, Sparkles, Layers, Loader2, Bookmark, UserPlus, MessageCircle, X, Locate, SlidersHorizontal, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -122,6 +122,7 @@ export default function MapViewContent() {
   const [editingCommentInput, setEditingCommentInput] = useState("");
   const [isCommentUpdating, setIsCommentUpdating] = useState(false);
   const [commentDeletingId, setCommentDeletingId] = useState<string | null>(null);
+  const [activeCommentMenuId, setActiveCommentMenuId] = useState<string | null>(null);
 
   const mapRef = useRef<any>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -1260,42 +1261,76 @@ export default function MapViewContent() {
                     <div className="space-y-3">
                       {comments.map((comment) => (
                         <div key={comment.id} className="flex gap-2">
-                          <div className={`flex h-6 w-6 items-center justify-center overflow-hidden rounded-full text-[9px] font-bold text-white ${comment.userColor}`}>
-                            {comment.userAvatarUrl ? (
-                              <img
-                                src={comment.userAvatarUrl}
-                                alt="Profilbild"
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              comment.userInitials
-                            )}
-                          </div>
+                          <Link href={`/profile/${comment.userId}`} className="flex-shrink-0 hover:opacity-80 active:scale-[0.98] transition-all cursor-pointer">
+                            <div className={`flex h-6 w-6 items-center justify-center overflow-hidden rounded-full font-bold text-[9px] flex-shrink-0 ${
+                              comment.userAvatarUrl 
+                                ? "bg-gradient-to-tr from-brand-green-700 to-brand-green-500 text-white" 
+                                : `${comment.userColor} text-white`
+                            }`}>
+                              {comment.userAvatarUrl ? (
+                                <img
+                                  src={comment.userAvatarUrl}
+                                  alt="Profilbild"
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                comment.userInitials
+                              )}
+                            </div>
+                          </Link>
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-semibold text-slate-700">
-                                {comment.userName}
-                              </span>
+                              <Link href={`/profile/${comment.userId}`} className="hover:text-brand-green-700 hover:underline cursor-pointer">
+                                <span className="text-[11px] font-semibold text-slate-700">
+                                  {comment.userName}
+                                </span>
+                              </Link>
                               <span className="text-[9px] text-slate-400">
                                 {formatCommentTimestamp(comment.createdAt)}
                               </span>
                               {user?.id === comment.userId && editingCommentId !== comment.id && (
-                                <div className="ml-auto flex items-center gap-1">
+                                <div className="ml-auto relative">
                                   <button
                                     type="button"
-                                    onClick={() => startEditComment(comment)}
-                                    className="text-[9px] font-semibold text-slate-500 hover:text-slate-700"
+                                    onClick={() => setActiveCommentMenuId(activeCommentMenuId === comment.id ? null : comment.id)}
+                                    className="flex h-5 w-5 items-center justify-center rounded-lg text-slate-455 hover:bg-slate-50 hover:text-slate-700 transition-all cursor-pointer"
+                                    title="Kommentaroptionen"
                                   >
-                                    Bearbeiten
+                                    <MoreVertical className="h-3.5 w-3.5" />
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteComment(comment.id)}
-                                    disabled={commentDeletingId === comment.id}
-                                    className="text-[9px] font-semibold text-red-500 hover:text-red-600 disabled:opacity-60"
-                                  >
-                                    Löschen
-                                  </button>
+
+                                  {activeCommentMenuId === comment.id && (
+                                    <>
+                                      <div
+                                        className="fixed inset-0 z-130 bg-transparent"
+                                        onClick={() => setActiveCommentMenuId(null)}
+                                      />
+                                      <div className="absolute right-0 top-full mt-0.5 w-28 origin-top-right rounded-xl border border-slate-100 bg-white p-1 shadow-lg ring-1 ring-black/5 z-140 animate-in fade-in slide-in-from-top-1 duration-100">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setActiveCommentMenuId(null);
+                                            startEditComment(comment);
+                                          }}
+                                          className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-50 active:scale-98 transition-all cursor-pointer text-left"
+                                        >
+                                          <Pencil className="h-3 w-3 text-slate-400" />
+                                          <span>Bearbeiten</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setActiveCommentMenuId(null);
+                                            handleDeleteComment(comment.id);
+                                          }}
+                                          className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-semibold text-rose-650 hover:bg-rose-50 active:scale-98 transition-all cursor-pointer text-left"
+                                        >
+                                          <Trash2 className="h-3 w-3 text-rose-500" />
+                                          <span>Löschen</span>
+                                        </button>
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                               )}
                             </div>
