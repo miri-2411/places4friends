@@ -123,5 +123,13 @@ export default async function ActivitiesPage() {
     }
   }
 
-  return <ActivitiesView activities={activities} />;
+  // Fetch wishlisted activities
+  const { data: wishlistData } = await supabase
+    .from("wishlist")
+    .select("activity_id")
+    .eq("user_id", user.id);
+  const initialWishlistedIds = (wishlistData || []).map((w: any) => w.activity_id);
+
+  return <ActivitiesView activities={activities} initialWishlistedIds={initialWishlistedIds} />;
 }
+

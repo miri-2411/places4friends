@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Settings, Sparkles, LogOut, UserPlus, MapPin, Pencil, Trash2, X, Check } from "lucide-react";
+import { Settings, Sparkles, LogOut, UserPlus, MapPin, Pencil, Trash2, X, Check, Bookmark } from "lucide-react";
 import { signout } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/client";
 
@@ -20,6 +20,23 @@ interface PlaceItem {
   review: string;
   timestamp: string;
   categories?: string[];
+}
+
+interface WishlistItem {
+  id: string;
+  activityId: string;
+  name: string;
+  isMustSee?: boolean;
+  review: string;
+  timestamp: string;
+  categories?: string[];
+  friend: {
+    id: string;
+    name: string;
+    username: string;
+    initials: string;
+    color: string;
+  };
 }
 
 interface ActivityComment {
@@ -48,15 +65,19 @@ const CATEGORY_OPTIONS = [
 export default function ProfileView({ 
   user, 
   friendsCount = 0,
-  places = []
+  places = [],
+  wishlist = []
 }: { 
   user?: User; 
   friendsCount?: number;
   places?: PlaceItem[];
+  wishlist?: WishlistItem[];
 }) {
   const supabase = createClient();
 
   const [items, setItems] = useState<PlaceItem[]>(places);
+  const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>(wishlist);
+  const [activeTab, setActiveTab] = useState<"recommendations" | "wishlist">("recommendations");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editReview, setEditReview] = useState("");
@@ -77,6 +98,25 @@ export default function ProfileView({
   useEffect(() => {
     setItems(places);
   }, [places]);
+
+  useEffect(() => {
+    setWishlistItems(wishlist);
+  }, [wishlist]);
+
+  const handleRemoveFromWishlist = async (activityId: string) => {
+    setWishlistItems((prev) => prev.filter((item) => item.activityId !== activityId));
+    try {
+      const response = await fetch(`/api/wishlist?activityId=${activityId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error();
+    } catch (err) {
+      const itemToRestore = wishlist.find((i) => i.activityId === activityId);
+      if (itemToRestore) {
+        setWishlistItems((prev) => [...prev, itemToRestore].sort((a, b) => b.timestamp.localeCompare(a.timestamp)));
+      }
+    }
+  };
 
   useEffect(() => {
     if (!user || items.length === 0) {
@@ -429,287 +469,405 @@ export default function ProfileView({
           </Link>
         </div>
 
-        {/* Activity Feed Section */}
-        <div className="mt-8 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Meine Empfehlungen
-            </h3>
-          </div>
+        {/* Tabs */}
+        <div className="mt-8 flex w-full border-b border-slate-100">
+          <button
+            onClick={() => setActiveTab("recommendations")}
+            className={`flex-1 pb-3 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+              activeTab === "recommendations"
+                ? "border-brand-green-700 text-brand-green-800"
+                : "border-transparent text-slate-400 hover:text-slate-600"
+            }`}
+          >
+            Meine Empfehlungen
+          </button>
+          <button
+            onClick={() => setActiveTab("wishlist")}
+            className={`flex-1 pb-3 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+              activeTab === "wishlist"
+                ? "border-brand-green-700 text-brand-green-800"
+                : "border-transparent text-slate-400 hover:text-slate-600"
+            }`}
+          >
+            Wishlist
+          </button>
+        </div>
 
-          {actionError && editingId === null && (
-            <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
-              {actionError}
-            </div>
-          )}
+        {/* Tab Content */}
+        <div className="mt-6">
+          {activeTab === "recommendations" ? (
+            <div className="space-y-4">
+              {actionError && editingId === null && (
+                <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  {actionError}
+                </div>
+              )}
 
-          {/* Places List */}
-          <div className="space-y-3.5 pb-8">
-            {items.length > 0 ? (
-              items.map((place) => (
-                <div
-                  key={place.id}
-                  className="group rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)] transition-all duration-300"
-                >
-                  {/* Place Info Title & Tag */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
+              {/* Places List */}
+              <div className="space-y-3.5 pb-8">
+                {items.length > 0 ? (
+                  items.map((place) => (
+                    <div
+                      key={place.id}
+                      className="group rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)] transition-all duration-300"
+                    >
+                      {/* Place Info Title & Tag */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          {editingId === place.id ? (
+                            <div className="space-y-2">
+                              <input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-brand-green-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setEditIsMustSee(!editIsMustSee)}
+                                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold transition-all ${
+                                  editIsMustSee
+                                    ? "border-amber-200 bg-amber-50 text-amber-700"
+                                    : "border-slate-200 bg-white text-slate-500"
+                                }`}
+                              >
+                                <Sparkles className="h-3 w-3" />
+                                Must See
+                              </button>
+                              <div className="flex flex-wrap gap-1.5">
+                                {CATEGORY_OPTIONS.map((category) => {
+                                  const isSelected = editCategories.includes(category);
+                                  return (
+                                    <button
+                                      key={category}
+                                      type="button"
+                                      onClick={() => toggleEditCategory(category)}
+                                      className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold transition-all ${
+                                        isSelected
+                                          ? "border-brand-green-600 bg-brand-green-50 text-brand-green-800"
+                                          : "border-slate-200 bg-white text-slate-600"
+                                      }`}
+                                    >
+                                      {category}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <h4 className="font-bold text-slate-900 group-hover:text-brand-green-700 transition-colors">
+                                {place.name}
+                              </h4>
+                              {place.isMustSee && (
+                                <div className="mt-1.5">
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-600/15 shadow-sm">
+                                    <Sparkles className="h-3 w-3 text-amber-500 fill-amber-400 animate-pulse" />
+                                    Must See
+                                  </span>
+                                </div>
+                              )}
+                              {place.categories && place.categories.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                  {place.categories.map((category) => (
+                                    <span
+                                      key={category}
+                                      className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] font-semibold text-slate-600"
+                                    >
+                                      {category}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className="text-[10px] text-slate-400 font-medium">{place.timestamp}</span>
+                          {editingId === place.id ? (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => saveEdit(place.id)}
+                                disabled={isSaving}
+                                className="inline-flex items-center gap-1 rounded-lg border border-brand-green-600 bg-brand-green-600 px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm disabled:opacity-60"
+                              >
+                                <Check className="h-3 w-3" />
+                                Speichern
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelEdit}
+                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-semibold text-slate-500"
+                              >
+                                <X className="h-3 w-3" />
+                                Abbrechen
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => startEdit(place)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300"
+                              >
+                                <Pencil className="h-3 w-3" />
+                                Bearbeiten
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deletePlace(place.id)}
+                                disabled={deletingId === place.id}
+                                className="inline-flex items-center gap-1 rounded-lg border border-red-100 px-2.5 py-1 text-[10px] font-semibold text-red-600 disabled:opacity-60"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                Loeschen
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {editingId === place.id && actionError && (
+                        <div className="mt-2 rounded-lg border border-red-100 bg-red-50 px-2.5 py-2 text-[11px] text-red-700">
+                          {actionError}
+                        </div>
+                      )}
+
+                      {/* Place Review Text */}
                       {editingId === place.id ? (
-                        <div className="space-y-2">
+                        <textarea
+                          value={editReview}
+                          onChange={(e) => setEditReview(e.target.value)}
+                          rows={3}
+                          className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-brand-green-500"
+                        />
+                      ) : (
+                        <p className="mt-3 text-xs leading-relaxed text-slate-600">
+                          {place.review}
+                        </p>
+                      )}
+
+                      <div className="mt-4 border-t border-slate-100 pt-4">
+                        <div className="flex items-center justify-between text-[10px] text-slate-400">
+                          <span className="font-semibold uppercase tracking-wide">Kommentare</span>
+                          <span>{commentsByPlace[place.id]?.length ?? 0}</span>
+                        </div>
+
+                        {commentErrors[place.id] && (
+                          <div className="mt-2 rounded-lg border border-red-100 bg-red-50 px-2.5 py-1.5 text-[10px] text-red-700">
+                            {commentErrors[place.id]}
+                          </div>
+                        )}
+
+                        {loadingComments[place.id] ? (
+                          <div className="mt-2 text-[10px] text-slate-500">
+                            Kommentare werden geladen...
+                          </div>
+                        ) : (commentsByPlace[place.id] ?? []).length === 0 ? (
+                          <div className="mt-2 text-[10px] text-slate-500">
+                            Noch keine Kommentare.
+                          </div>
+                        ) : (
+                          <div className="mt-2 space-y-2">
+                            {(commentsByPlace[place.id] ?? []).map((comment) => (
+                              <div key={comment.id} className="flex gap-2">
+                                <div className={`flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white ${comment.userColor}`}>
+                                  {comment.userInitials}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-semibold text-slate-700">
+                                      {comment.userName}
+                                    </span>
+                                    <span className="text-[9px] text-slate-400">
+                                      {formatCommentTimestamp(comment.createdAt)}
+                                    </span>
+                                    {user?.id === comment.userId && editingCommentId !== comment.id && (
+                                      <div className="ml-auto flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => startEditComment(comment)}
+                                          className="text-[9px] font-semibold text-slate-500 hover:text-slate-700"
+                                        >
+                                          Bearbeiten
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteComment(place.id, comment.id)}
+                                          disabled={commentDeletingId === comment.id}
+                                          className="text-[9px] font-semibold text-red-500 hover:text-red-600 disabled:opacity-60"
+                                        >
+                                          Loeschen
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {editingCommentId === comment.id ? (
+                                    <div className="mt-1 flex gap-2">
+                                      <input
+                                        value={editingCommentInput}
+                                        onChange={(e) => setEditingCommentInput(e.target.value)}
+                                        className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 outline-none focus:border-brand-green-500"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateComment(place.id, comment.id)}
+                                        disabled={savingCommentId === place.id || editingCommentInput.trim().length === 0}
+                                        className="rounded-lg bg-brand-green-700 px-2 py-1 text-[9px] font-semibold text-white disabled:opacity-60"
+                                      >
+                                        {savingCommentId === place.id ? "..." : "OK"}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={cancelEditComment}
+                                        className="rounded-lg border border-slate-200 px-2 py-1 text-[9px] font-semibold text-slate-500"
+                                      >
+                                        X
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <p className="text-[11px] text-slate-600 leading-snug">
+                                      {comment.content}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="mt-3 flex gap-2">
                           <input
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-brand-green-500"
+                            value={commentInputs[place.id] ?? ""}
+                            onChange={(e) => updateCommentInput(place.id, e.target.value)}
+                            placeholder="Kommentar schreiben"
+                            className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-brand-green-500"
                           />
                           <button
                             type="button"
-                            onClick={() => setEditIsMustSee(!editIsMustSee)}
-                            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold transition-all ${
-                              editIsMustSee
-                                ? "border-amber-200 bg-amber-50 text-amber-700"
-                                : "border-slate-200 bg-white text-slate-500"
-                            }`}
+                            onClick={() => handleAddComment(place.id)}
+                            disabled={savingCommentId === place.id || !(commentInputs[place.id] || "").trim()}
+                            className="rounded-lg bg-brand-green-700 px-3 py-1.5 text-[10px] font-semibold text-white transition-all disabled:opacity-60"
                           >
-                            <Sparkles className="h-3 w-3" />
-                            Must See
+                            {savingCommentId === place.id ? "..." : "Senden"}
                           </button>
-                          <div className="flex flex-wrap gap-1.5">
-                            {CATEGORY_OPTIONS.map((category) => {
-                              const isSelected = editCategories.includes(category);
-                              return (
-                                <button
-                                  key={category}
-                                  type="button"
-                                  onClick={() => toggleEditCategory(category)}
-                                  className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold transition-all ${
-                                    isSelected
-                                      ? "border-brand-green-600 bg-brand-green-50 text-brand-green-800"
-                                      : "border-slate-200 bg-white text-slate-600"
-                                  }`}
-                                >
-                                  {category}
-                                </button>
-                              );
-                            })}
-                          </div>
                         </div>
-                      ) : (
-                        <>
-                          <h4 className="font-bold text-slate-900 group-hover:text-brand-green-700 transition-colors">
-                            {place.name}
-                          </h4>
-                          {place.isMustSee && (
-                            <div className="mt-1.5">
-                              <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-600/15 shadow-sm">
-                                <Sparkles className="h-3 w-3 text-amber-500 fill-amber-400 animate-pulse" />
-                                Must See
-                              </span>
-                            </div>
-                          )}
-                          {place.categories && place.categories.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                              {place.categories.map((category) => (
-                                <span
-                                  key={category}
-                                  className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] font-semibold text-slate-600"
-                                >
-                                  {category}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      )}
+                      </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span className="text-[10px] text-slate-400 font-medium">{place.timestamp}</span>
-                      {editingId === place.id ? (
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => saveEdit(place.id)}
-                            disabled={isSaving}
-                            className="inline-flex items-center gap-1 rounded-lg border border-brand-green-600 bg-brand-green-600 px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm disabled:opacity-60"
-                          >
-                            <Check className="h-3 w-3" />
-                            Speichern
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelEdit}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-semibold text-slate-500"
-                          >
-                            <X className="h-3 w-3" />
-                            Abbrechen
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => startEdit(place)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300"
-                          >
-                            <Pencil className="h-3 w-3" />
-                            Bearbeiten
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deletePlace(place.id)}
-                            disabled={deletingId === place.id}
-                            className="inline-flex items-center gap-1 rounded-lg border border-red-100 px-2.5 py-1 text-[10px] font-semibold text-red-600 disabled:opacity-60"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                            Loeschen
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center">
+                    <MapPin className="h-8 w-8 text-slate-300 mx-auto" />
+                    <p className="text-xs text-slate-500 mt-2 font-medium">Noch keine Empfehlungen eingetragen</p>
+                    <Link
+                      href="/create"
+                      className="mt-3.5 inline-flex items-center gap-1 rounded-xl bg-brand-green-700 px-3.5 py-2 text-[11px] font-bold text-white shadow-sm hover:bg-brand-green-800 transition-all cursor-pointer"
+                    >
+                      Ort empfehlen
+                    </Link>
                   </div>
-
-                  {editingId === place.id && actionError && (
-                    <div className="mt-2 rounded-lg border border-red-100 bg-red-50 px-2.5 py-2 text-[11px] text-red-700">
-                      {actionError}
-                    </div>
-                  )}
-
-                  {/* Place Review Text */}
-                  {editingId === place.id ? (
-                    <textarea
-                      value={editReview}
-                      onChange={(e) => setEditReview(e.target.value)}
-                      rows={3}
-                      className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-brand-green-500"
-                    />
-                  ) : (
-                    <p className="mt-3 text-xs leading-relaxed text-slate-600">
-                      {place.review}
-                    </p>
-                  )}
-
-                  <div className="mt-4 border-t border-slate-100 pt-4">
-                    <div className="flex items-center justify-between text-[10px] text-slate-400">
-                      <span className="font-semibold uppercase tracking-wide">Kommentare</span>
-                      <span>{commentsByPlace[place.id]?.length ?? 0}</span>
-                    </div>
-
-                    {commentErrors[place.id] && (
-                      <div className="mt-2 rounded-lg border border-red-100 bg-red-50 px-2.5 py-1.5 text-[10px] text-red-700">
-                        {commentErrors[place.id]}
-                      </div>
-                    )}
-
-                    {loadingComments[place.id] ? (
-                      <div className="mt-2 text-[10px] text-slate-500">
-                        Kommentare werden geladen...
-                      </div>
-                    ) : (commentsByPlace[place.id] ?? []).length === 0 ? (
-                      <div className="mt-2 text-[10px] text-slate-500">
-                        Noch keine Kommentare.
-                      </div>
-                    ) : (
-                      <div className="mt-2 space-y-2">
-                        {(commentsByPlace[place.id] ?? []).map((comment) => (
-                          <div key={comment.id} className="flex gap-2">
-                            <div className={`flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white ${comment.userColor}`}>
-                              {comment.userInitials}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-semibold text-slate-700">
-                                  {comment.userName}
-                                </span>
-                                <span className="text-[9px] text-slate-400">
-                                  {formatCommentTimestamp(comment.createdAt)}
-                                </span>
-                                {user?.id === comment.userId && editingCommentId !== comment.id && (
-                                  <div className="ml-auto flex items-center gap-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => startEditComment(comment)}
-                                      className="text-[9px] font-semibold text-slate-500 hover:text-slate-700"
-                                    >
-                                      Bearbeiten
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteComment(place.id, comment.id)}
-                                      disabled={commentDeletingId === comment.id}
-                                      className="text-[9px] font-semibold text-red-500 hover:text-red-600 disabled:opacity-60"
-                                    >
-                                      Loeschen
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                              {editingCommentId === comment.id ? (
-                                <div className="mt-1 flex gap-2">
-                                  <input
-                                    value={editingCommentInput}
-                                    onChange={(e) => setEditingCommentInput(e.target.value)}
-                                    className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 outline-none focus:border-brand-green-500"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => handleUpdateComment(place.id, comment.id)}
-                                    disabled={savingCommentId === place.id || editingCommentInput.trim().length === 0}
-                                    className="rounded-lg bg-brand-green-700 px-2 py-1 text-[9px] font-semibold text-white disabled:opacity-60"
-                                  >
-                                    {savingCommentId === place.id ? "..." : "OK"}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={cancelEditComment}
-                                    className="rounded-lg border border-slate-200 px-2 py-1 text-[9px] font-semibold text-slate-500"
-                                  >
-                                    X
-                                  </button>
-                                </div>
-                              ) : (
-                                <p className="text-[11px] text-slate-600 leading-snug">
-                                  {comment.content}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="mt-3 flex gap-2">
-                      <input
-                        value={commentInputs[place.id] ?? ""}
-                        onChange={(e) => updateCommentInput(place.id, e.target.value)}
-                        placeholder="Kommentar schreiben"
-                        className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-brand-green-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleAddComment(place.id)}
-                        disabled={savingCommentId === place.id || !(commentInputs[place.id] || "").trim()}
-                        className="rounded-lg bg-brand-green-700 px-3 py-1.5 text-[10px] font-semibold text-white transition-all disabled:opacity-60"
-                      >
-                        {savingCommentId === place.id ? "..." : "Senden"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center">
-                <MapPin className="h-8 w-8 text-slate-300 mx-auto" />
-                <p className="text-xs text-slate-500 mt-2 font-medium">Noch keine Empfehlungen eingetragen</p>
-                <Link
-                  href="/create"
-                  className="mt-3.5 inline-flex items-center gap-1 rounded-xl bg-brand-green-700 px-3.5 py-2 text-[11px] font-bold text-white shadow-sm hover:bg-brand-green-800 transition-all cursor-pointer"
-                >
-                  Ort empfehlen
-                </Link>
+                )}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          ) : (
+            /* Wishlist Tab Content */
+            <div className="space-y-3.5 pb-8">
+              {wishlistItems.length > 0 ? (
+                wishlistItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="group rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)] transition-all duration-300"
+                  >
+                    {/* Friend Header */}
+                    <div className="flex items-center justify-between border-b border-slate-50 pb-3 mb-3">
+                      <Link href={`/profile/${item.friend.id}`} className="flex items-center gap-2.5 hover:opacity-90">
+                        <div
+                          className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-white shadow-sm ${item.friend.color}`}
+                        >
+                          {item.friend.initials}
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-800">
+                            {item.friend.name}
+                          </h4>
+                          {item.friend.username && (
+                            <p className="text-[9px] font-semibold text-brand-green-700">
+                              @{item.friend.username}
+                            </p>
+                          )}
+                        </div>
+                      </Link>
+                      <span className="text-[9px] text-slate-400 font-medium">
+                        {item.timestamp}
+                      </span>
+                    </div>
+
+                    {/* Recommendation Details */}
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="h-4 w-4 text-brand-green-700 flex-shrink-0" />
+                          <h3 className="font-bold text-sm text-slate-900 group-hover:text-brand-green-700 transition-colors">
+                            {item.name}
+                          </h3>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {item.isMustSee && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[9px] font-bold text-amber-700 ring-1 ring-amber-600/15 shadow-sm">
+                              <Sparkles className="h-2.5 w-2.5 text-amber-500 fill-amber-400 animate-pulse" />
+                              Must See
+                            </span>
+                          )}
+
+                          <button
+                            onClick={() => handleRemoveFromWishlist(item.activityId)}
+                            className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-100 bg-white hover:bg-slate-50 active:scale-90 transition-all cursor-pointer shadow-sm text-brand-green-700"
+                            title="Aus Wishlist entfernen"
+                          >
+                            <Bookmark className="h-3.5 w-3.5 fill-brand-green-700 text-brand-green-700" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {item.review ? (
+                        <p className="text-xs leading-relaxed text-slate-600 pl-5">
+                          {item.review}
+                        </p>
+                      ) : (
+                        <p className="text-xs italic text-slate-400 pl-5">
+                          Keine Beschreibung hinterlassen.
+                        </p>
+                      )}
+
+                      {item.categories && item.categories.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-1 pl-5">
+                          {item.categories.map((category) => (
+                            <span
+                              key={category}
+                              className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] font-semibold text-slate-600"
+                            >
+                              {category}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center">
+                  <Bookmark className="h-8 w-8 text-slate-300 mx-auto" />
+                  <p className="text-xs text-slate-500 mt-2 font-medium">Deine Wishlist ist noch leer</p>
+                  <p className="text-[10px] text-slate-400 mt-1 max-w-[200px] mx-auto leading-relaxed">
+                    Speichere die Lieblingsorte deiner Freunde über die Karte oder den Feed.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
       </div>
+    </div>
     </div>
   );
 }

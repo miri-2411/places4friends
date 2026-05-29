@@ -246,17 +246,7 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
       <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-slate-100 bg-white px-4">
         <div className="w-16" /> {/* Left Spacer to center title */}
         <h1 className="text-sm font-bold text-slate-900">Freunde & Anfragen</h1>
-        {activeTab === "friends" ? (
-          <button
-            onClick={() => setIsSearchModalOpen(true)}
-            className="flex items-center gap-1 rounded-lg bg-brand-green-50 px-2 py-1 text-[11px] font-bold text-brand-green-700 hover:bg-brand-green-100 active:scale-95 transition-all cursor-pointer"
-          >
-            <UserPlus className="h-3.5 w-3.5" />
-            <span>Hinzufügen</span>
-          </button>
-        ) : (
-          <div className="w-16" />
-        )}
+        <div className="w-16" />
       </header>
 
       {/* Tabs */}

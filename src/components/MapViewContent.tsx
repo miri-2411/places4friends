@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Map, { Marker, Popup } from "react-map-gl/mapbox";
-import { Search, Users, MapPin, Sparkles, Layers, Loader2 } from "lucide-react";
+import { Search, Users, MapPin, Sparkles, Layers, Loader2, Bookmark } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -80,6 +80,7 @@ export default function MapViewContent() {
 
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [wishlistIds, setWishlistIds] = useState<string[]>([]);
   const [currentStyle, setCurrentStyle] = useState("mapbox://styles/mapbox/streets-v12");
   const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
   const [comments, setComments] = useState<ActivityComment[]>([]);
@@ -208,6 +209,13 @@ export default function MapViewContent() {
 
         setPlaces(loadedPlaces);
 
+        // Fetch user's wishlist
+        const { data: wishlistEntries } = await supabase
+          .from("wishlist")
+          .select("activity_id")
+          .eq("user_id", authUser.id);
+        setWishlistIds((wishlistEntries || []).map((w: any) => w.activity_id));
+
         // Dynamically center map on first recommendation if exists
         if (loadedPlaces.length > 0) {
           setViewState({
@@ -225,6 +233,34 @@ export default function MapViewContent() {
 
     loadMapData();
   }, []);
+
+  const toggleWishlist = async (activityId: string) => {
+    if (!user) return;
+    const isSaved = wishlistIds.includes(activityId);
+    if (isSaved) {
+      setWishlistIds((prev) => prev.filter((id) => id !== activityId));
+      try {
+        const response = await fetch(`/api/wishlist?activityId=${activityId}`, {
+          method: "DELETE",
+        });
+        if (!response.ok) throw new Error();
+      } catch (err) {
+        setWishlistIds((prev) => [...prev, activityId]);
+      }
+    } else {
+      setWishlistIds((prev) => [...prev, activityId]);
+      try {
+        const response = await fetch("/api/wishlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ activityId }),
+        });
+        if (!response.ok) throw new Error();
+      } catch (err) {
+        setWishlistIds((prev) => prev.filter((id) => id !== activityId));
+      }
+    }
+  };
 
   const fetchComments = async (activityId: string, isActive?: () => boolean) => {
     setIsCommentsLoading(true);
@@ -502,12 +538,29 @@ export default function MapViewContent() {
               <div className="p-3 bg-white rounded-xl shadow-sm text-slate-800">
                 <div className="flex items-start justify-between gap-2">
                   <h4 className="font-bold text-sm text-slate-900">{selectedPlace.name}</h4>
-                  {selectedPlace.isMustSee && (
-                    <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 ring-1 ring-amber-600/15">
-                      <Sparkles className="h-2.5 w-2.5 text-amber-500 fill-amber-400 animate-pulse" />
-                      Must See
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {selectedPlace.isMustSee && (
+                      <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 ring-1 ring-amber-600/15 flex-shrink-0">
+                        <Sparkles className="h-2.5 w-2.5 text-amber-500 fill-amber-400 animate-pulse" />
+                        Must See
+                      </span>
+                    )}
+                    {user && selectedPlace.userId !== user.id && (
+                      <button
+                        onClick={() => toggleWishlist(selectedPlace.id)}
+                        className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-slate-100 active:scale-90 transition-all cursor-pointer flex-shrink-0"
+                        title={wishlistIds.includes(selectedPlace.id) ? "Aus Wishlist entfernen" : "In Wishlist speichern"}
+                      >
+                        <Bookmark
+                          className={`h-3.5 w-3.5 transition-colors ${
+                            wishlistIds.includes(selectedPlace.id)
+                              ? "text-brand-green-700 fill-brand-green-700"
+                              : "text-slate-400 hover:text-brand-green-700"
+                          }`}
+                        />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-500">

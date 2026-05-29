@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Sparkles, MapPin } from "lucide-react";
+import { ArrowLeft, Sparkles, MapPin, Bookmark } from "lucide-react";
 
 interface User {
   id: string;
@@ -25,11 +25,46 @@ export default function PublicProfileView({
   friend,
   friendsCount = 0,
   places = [],
+  initialWishlistedIds = [],
 }: {
   friend: User;
   friendsCount?: number;
   places?: PlaceItem[];
+  initialWishlistedIds?: string[];
 }) {
+  const [wishlistIds, setWishlistIds] = useState<string[]>(initialWishlistedIds);
+
+  useEffect(() => {
+    setWishlistIds(initialWishlistedIds);
+  }, [initialWishlistedIds]);
+
+  const toggleWishlist = async (activityId: string) => {
+    const isSaved = wishlistIds.includes(activityId);
+    if (isSaved) {
+      setWishlistIds((prev) => prev.filter((id) => id !== activityId));
+      try {
+        const response = await fetch(`/api/wishlist?activityId=${activityId}`, {
+          method: "DELETE",
+        });
+        if (!response.ok) throw new Error();
+      } catch (err) {
+        setWishlistIds((prev) => [...prev, activityId]);
+      }
+    } else {
+      setWishlistIds((prev) => [...prev, activityId]);
+      try {
+        const response = await fetch("/api/wishlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ activityId }),
+        });
+        if (!response.ok) throw new Error();
+      } catch (err) {
+        setWishlistIds((prev) => prev.filter((id) => id !== activityId));
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-50/50 pb-20 font-sans">
       {/* Header */}
@@ -129,9 +164,24 @@ export default function PublicProfileView({
                         </div>
                       )}
                     </div>
-                    <span className="text-[10px] text-slate-400 font-medium">
-                      {place.timestamp}
-                    </span>
+                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        {place.timestamp}
+                      </span>
+                      <button
+                        onClick={() => toggleWishlist(place.id)}
+                        className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-100 bg-white hover:bg-slate-50 active:scale-90 transition-all cursor-pointer shadow-sm"
+                        title={wishlistIds.includes(place.id) ? "Aus Wishlist entfernen" : "In Wishlist speichern"}
+                      >
+                        <Bookmark
+                          className={`h-3.5 w-3.5 transition-colors ${
+                            wishlistIds.includes(place.id)
+                              ? "text-brand-green-700 fill-brand-green-700"
+                              : "text-slate-400 hover:text-brand-green-700"
+                          }`}
+                        />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Place Review Text */}

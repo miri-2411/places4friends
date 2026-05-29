@@ -126,11 +126,19 @@ export default async function PublicProfilePage({
     color: getUserColorClass(profile.id),
   };
 
+  // Fetch authenticated user's wishlist
+  const { data: wishlistData } = await supabase
+    .from("wishlist")
+    .select("activity_id")
+    .eq("user_id", user.id);
+  const initialWishlistedIds = (wishlistData || []).map((w: any) => w.activity_id);
+
   return (
     <PublicProfileView
       friend={friendData}
       friendsCount={friendsCount ?? 0}
       places={places}
+      initialWishlistedIds={initialWishlistedIds}
     />
   );
 }
