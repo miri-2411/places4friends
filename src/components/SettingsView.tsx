@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Save, User, AtSign, Bell, Trash2, X, AlertTriangle, Loader2 } from "lucide-react";
+import { ArrowLeft, Mail, Save, User, AtSign, Bell, Trash2, X, AlertTriangle, Loader2, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface UserProfile {
@@ -28,6 +28,13 @@ export default function SettingsView({ user }: { user: UserProfile }) {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleStartOnboarding = () => {
+    const storageKey = `p4f_onboarding_step_${user.id}`;
+    globalThis.localStorage?.setItem("p4f_onboarding_active", "true");
+    globalThis.localStorage?.setItem(storageKey, "0");
+    router.push("/");
+  };
 
   const hasChanges = useMemo(() => {
     const nextName = fullName.trim();
@@ -223,6 +230,21 @@ export default function SettingsView({ user }: { user: UserProfile }) {
           <p className="text-[11px] font-medium text-slate-400">
             Push-Versand ist vorbereitet, wird aber erst aktiv, sobald wir die Systemberechtigung anfragen.
           </p>
+        </section>
+ 
+        <section className="space-y-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.03)]">
+          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Hilfe & Anleitung</h2>
+          <p className="text-[11px] font-medium text-slate-500">
+            Du kannst die interaktive Tour durch places4friends jederzeit starten, um die wichtigsten Funktionen kennenzulernen.
+          </p>
+          <button
+            type="button"
+            onClick={handleStartOnboarding}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-brand-green-200 bg-brand-green-50/50 px-4 py-2.5 text-sm font-semibold text-brand-green-800 shadow-sm transition-all hover:bg-brand-green-100 active:scale-[0.98] cursor-pointer"
+          >
+            <Sparkles className="h-4 w-4" />
+            Tour starten
+          </button>
         </section>
 
         <section className="space-y-3 rounded-2xl border border-rose-100 bg-rose-50/50 p-4 shadow-[0_8px_30px_rgb(0,0,0,0.03)]">

@@ -46,7 +46,6 @@ export async function signup(formData: FormData) {
       data: {
         full_name: fullName || undefined,
         username: username || undefined,
-        onboarding_completed: false,
       },
     },
   });

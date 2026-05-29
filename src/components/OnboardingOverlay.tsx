@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type HintPlacement = "bottom-nav" | "top-right";
@@ -89,6 +89,7 @@ type Step = StepDefinition;
 export default function OnboardingOverlay() {
   const supabase = createClient();
   const router = useRouter();
+  const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -115,9 +116,9 @@ export default function OnboardingOverlay() {
         return;
       }
 
-      const onboardingCompleted = data.user.user_metadata?.onboarding_completed;
+      const activeFlag = globalThis.localStorage?.getItem("p4f_onboarding_active") === "true";
       setUserId(data.user.id);
-      setIsVisible(onboardingCompleted !== true);
+      setIsVisible(activeFlag);
       setIsReady(true);
     };
 
@@ -132,6 +133,13 @@ export default function OnboardingOverlay() {
       authListener?.subscription?.unsubscribe();
     };
   }, [supabase]);
+
+  // Reactively check active onboarding flag on route changes
+  useEffect(() => {
+    if (!userId) return;
+    const activeFlag = globalThis.localStorage?.getItem("p4f_onboarding_active") === "true";
+    setIsVisible(activeFlag);
+  }, [pathname, userId]);
 
   useEffect(() => {
     if (!isVisible || !isReady) return;
@@ -161,21 +169,9 @@ export default function OnboardingOverlay() {
     return "bottom-20 left-1/2 -translate-x-1/2";
   };
 
-  const completeOnboarding = async () => {
-    setIsUpdating(true);
-    setError(null);
-    const { error: updateError } = await supabase.auth.updateUser({
-      data: { onboarding_completed: true },
-    });
-
-    if (updateError) {
-      setError("Onboarding konnte nicht abgeschlossen werden. Bitte erneut versuchen.");
-      setIsUpdating(false);
-      return;
-    }
-
+  const completeOnboarding = () => {
+    globalThis.localStorage?.removeItem("p4f_onboarding_active");
     globalThis.localStorage?.removeItem(storageKey);
-    setIsUpdating(false);
     setIsVisible(false);
   };
 
