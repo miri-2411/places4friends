@@ -12,7 +12,7 @@ export default async function ProfileSettingsPage() {
     return (
       <div className="flex flex-col min-h-screen bg-slate-50/50 pb-20 font-sans">
         <header className="sticky top-0 z-10 flex h-14 items-center justify-center border-b border-slate-100 bg-white px-4">
-          <h1 className="text-lg font-bold text-slate-900">Einstellungen</h1>
+          <h1 className="text-sm font-bold text-slate-900">Einstellungen</h1>
         </header>
         <AuthPrompt context="profile" />
       </div>

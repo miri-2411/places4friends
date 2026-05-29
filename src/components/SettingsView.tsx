@@ -99,18 +99,16 @@ export default function SettingsView({ user }: { user: UserProfile }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50/50 pb-24 font-sans">
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-slate-100 bg-white px-4">
-        <div className="flex items-center gap-2">
-          <Link
-            href="/profile"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 active:scale-95 transition-all"
-            aria-label="Zurück"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <h1 className="text-lg font-bold text-slate-900">Einstellungen</h1>
-        </div>
-        <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-center border-b border-slate-100 bg-white px-4">
+        <Link
+          href="/profile"
+          className="absolute left-4 flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 active:scale-95 transition-all"
+          aria-label="Zurück"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
+        <h1 className="text-sm font-bold text-slate-900">Einstellungen</h1>
+        <div className="absolute right-4 flex items-center gap-2 text-xs font-medium text-slate-500">
           {status === "saving" && "Speichert..."}
           {status === "success" && "Gespeichert"}
           {status === "error" && "Fehler"}

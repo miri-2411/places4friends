@@ -277,8 +277,8 @@ export default function ActivitiesView({
   return (
     <div className="flex flex-col min-h-screen bg-slate-50/50 pb-20 font-sans">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-slate-100 bg-white px-4">
-        <h1 className="text-lg font-bold text-slate-900">Aktivitäten</h1>
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-center border-b border-slate-100 bg-white px-4">
+        <h1 className="text-sm font-bold text-slate-900">Aktivitäten</h1>
       </header>
 
       <div className="flex-grow overflow-y-auto px-4 pt-6 page-transition">

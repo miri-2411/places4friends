@@ -4,15 +4,15 @@ import { ArrowLeft, Shield } from "lucide-react";
 export default function DatenschutzPage() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50/50 pb-20 font-sans">
-      <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b border-slate-100 bg-white px-4">
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-center border-b border-slate-100 bg-white px-4">
         <Link
           href="/profile"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
+          className="absolute left-4 flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
           aria-label="Zurück"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
-        <h1 className="text-lg font-bold text-slate-900">Datenschutzerklärung</h1>
+        <h1 className="text-sm font-bold text-slate-900">Datenschutzerklärung</h1>
       </header>
 
       <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6 text-sm leading-relaxed text-slate-700">

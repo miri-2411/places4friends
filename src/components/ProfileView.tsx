@@ -691,7 +691,8 @@ export default function ProfileView({
     <div className="flex flex-col min-h-screen bg-slate-50/50 pb-20 font-sans">
       {/* Header */}
       <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-slate-100 bg-white px-4">
-        <h1 className="text-lg font-bold text-slate-900">Mein Profil</h1>
+        <div className="w-9" /> {/* Unsichtbarer Platzhalter für perfekte Zentrierung */}
+        <h1 className="text-sm font-bold text-slate-900">Mein Profil</h1>
         <div className="relative">
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
