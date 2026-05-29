@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Sparkles, MapPin, Bookmark } from "lucide-react";
+import { ArrowLeft, Bookmark, MapPin } from "lucide-react";
+import ActivityCard from "./ActivityCard";
 
 interface User {
   id: string;
@@ -15,6 +16,8 @@ interface User {
 interface PlaceItem {
   id: string;
   name: string;
+  latitude?: number | null;
+  longitude?: number | null;
   isMustSee?: boolean;
   review: string;
   timestamp: string;
@@ -134,67 +137,32 @@ export default function PublicProfileView({
           <div className="space-y-3.5 pb-8">
             {places.length > 0 ? (
               places.map((place) => (
-                <div
+                <ActivityCard
                   key={place.id}
-                  className="group rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)] transition-all duration-300"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="font-bold text-slate-900 group-hover:text-brand-green-700 transition-colors">
-                        {place.name}
-                      </h4>
-                      {place.isMustSee && (
-                        <div className="mt-1.5">
-                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-600/15 shadow-sm">
-                            <Sparkles className="h-3 w-3 text-amber-500 fill-amber-400 animate-pulse" />
-                            Must See
-                          </span>
-                        </div>
-                      )}
-                      {place.categories && place.categories.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {place.categories.map((category) => (
-                            <span
-                              key={category}
-                              className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] font-semibold text-slate-600"
-                            >
-                              {category}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        {place.timestamp}
-                      </span>
-                      <button
-                        onClick={() => toggleWishlist(place.id)}
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-100 bg-white hover:bg-slate-50 active:scale-90 transition-all cursor-pointer shadow-sm"
-                        title={wishlistIds.includes(place.id) ? "Aus Wishlist entfernen" : "In Wishlist speichern"}
-                      >
-                        <Bookmark
-                          className={`h-3.5 w-3.5 transition-colors ${
-                            wishlistIds.includes(place.id)
-                              ? "text-brand-green-700 fill-brand-green-700"
-                              : "text-slate-400 hover:text-brand-green-700"
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Place Review Text */}
-                  {place.review ? (
-                    <p className="mt-3 text-xs leading-relaxed text-slate-600">
-                      {place.review}
-                    </p>
-                  ) : (
-                    <p className="mt-3 text-xs italic text-slate-400">
-                      Keine Beschreibung hinterlassen.
-                    </p>
-                  )}
-                </div>
+                  id={place.id}
+                  placeName={place.name}
+                  latitude={place.latitude}
+                  longitude={place.longitude}
+                  isMustSee={place.isMustSee}
+                  description={place.review}
+                  categories={place.categories}
+                  timestamp={place.timestamp}
+                  actions={
+                    <button
+                      onClick={() => toggleWishlist(place.id)}
+                      className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-100 bg-white hover:bg-slate-50 active:scale-90 transition-all cursor-pointer shadow-sm"
+                      title={wishlistIds.includes(place.id) ? "Aus Wishlist entfernen" : "In Wishlist speichern"}
+                    >
+                      <Bookmark
+                        className={`h-3.5 w-3.5 transition-colors ${
+                          wishlistIds.includes(place.id)
+                            ? "text-brand-green-700 fill-brand-green-700"
+                            : "text-slate-400 hover:text-brand-green-700"
+                        }`}
+                      />
+                    </button>
+                  }
+                />
               ))
             ) : (
               <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center">

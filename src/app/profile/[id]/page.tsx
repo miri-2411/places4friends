@@ -97,13 +97,15 @@ export default async function PublicProfilePage({
   // Fetch friend's activities
   const { data: activities } = await supabase
     .from("activities")
-    .select("id, place_name, is_superlike, description, created_at, categories")
+    .select("id, place_name, latitude, longitude, is_superlike, description, created_at, categories")
     .eq("user_id", friendId)
     .order("created_at", { ascending: false });
 
   const places = (activities || []).map((act) => ({
     id: act.id,
     name: act.place_name,
+    latitude: act.latitude,
+    longitude: act.longitude,
     isMustSee: act.is_superlike,
     review: act.description || "",
     categories: Array.isArray(act.categories) ? act.categories : [],

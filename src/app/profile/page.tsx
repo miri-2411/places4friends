@@ -36,13 +36,15 @@ export default async function ProfilePage() {
   // Fetch activities (recommendations)
   const { data: activities } = await supabase
     .from("activities")
-    .select("id, place_name, is_superlike, description, created_at, categories")
+    .select("id, place_name, latitude, longitude, is_superlike, description, created_at, categories")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
   const places = (activities || []).map((act) => ({
     id: act.id,
     name: act.place_name,
+    latitude: act.latitude,
+    longitude: act.longitude,
     isMustSee: act.is_superlike,
     review: act.description || "",
     categories: Array.isArray(act.categories) ? act.categories : [],
@@ -60,6 +62,8 @@ export default async function ProfilePage() {
         id,
         user_id,
         place_name,
+        latitude,
+        longitude,
         is_superlike,
         description,
         categories,
@@ -95,6 +99,8 @@ export default async function ProfilePage() {
       id: w.id,
       activityId: act.id,
       name: act.place_name,
+      latitude: act.latitude,
+      longitude: act.longitude,
       isMustSee: act.is_superlike,
       review: act.description || "",
       categories: Array.isArray(act.categories) ? act.categories : [],

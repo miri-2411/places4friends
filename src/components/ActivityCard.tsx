@@ -1,0 +1,156 @@
+"use client";
+
+import React from "react";
+import Link from "next/link";
+import { MapPin, Sparkles } from "lucide-react";
+
+export interface FriendInfo {
+  id: string;
+  name: string;
+  username: string;
+  initials: string;
+  color: string;
+}
+
+export interface ActivityCardProps {
+  id: string;
+  placeName: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  isMustSee?: boolean;
+  description?: string;
+  categories?: string[];
+  timestamp?: string;
+  friend?: FriendInfo;
+  actions?: React.ReactNode;
+  isEditing?: boolean;
+  editForm?: React.ReactNode;
+  children?: React.ReactNode;
+}
+
+export default function ActivityCard({
+  id,
+  placeName,
+  latitude,
+  longitude,
+  isMustSee = false,
+  description,
+  categories = [],
+  timestamp,
+  friend,
+  actions,
+  isEditing = false,
+  editForm,
+  children,
+}: ActivityCardProps) {
+  const hasCoordinates =
+    latitude !== undefined &&
+    latitude !== null &&
+    longitude !== undefined &&
+    longitude !== null;
+
+  return (
+    <div className="group rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)] transition-all duration-300">
+      {/* Friend Header if friend info is provided */}
+      {friend && (
+        <div className="flex items-center justify-between border-b border-slate-50 pb-3 mb-3">
+          <Link href={`/profile/${friend.id}`} className="flex items-center gap-2.5 hover:opacity-90">
+            <div
+              className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm ${friend.color}`}
+            >
+              {friend.initials}
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-slate-800">
+                {friend.name}
+              </h4>
+              {friend.username && (
+                <p className="text-[10px] font-semibold text-brand-green-700">
+                  @{friend.username}
+                </p>
+              )}
+            </div>
+          </Link>
+          {timestamp && (
+            <span className="text-[10px] text-slate-400 font-medium">
+              {timestamp}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Main Content Area */}
+      {isEditing && editForm ? (
+        <div className="space-y-3">
+          {editForm}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            {/* Title / Name (as Link to Map if coordinates exist) */}
+            {hasCoordinates ? (
+              <Link
+                href={`/?lat=${latitude}&lng=${longitude}&placeId=${id}`}
+                className="flex items-center gap-1.5 group/link cursor-pointer hover:underline decoration-brand-green-700/40"
+              >
+                <MapPin className="h-4 w-4 text-brand-green-700 flex-shrink-0 group-hover/link:text-brand-green-800 transition-colors" />
+                <h3 className="font-bold text-sm text-slate-900 group-hover/link:text-brand-green-700 transition-colors">
+                  {placeName}
+                </h3>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <MapPin className="h-4 w-4 text-brand-green-700 flex-shrink-0" />
+                <h3 className="font-bold text-sm text-slate-900">
+                  {placeName}
+                </h3>
+              </div>
+            )}
+
+            {/* Actions & Optional Timestamp (rendered here if no Friend Header exists) */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {!friend && timestamp && (
+                <span className="text-[10px] text-slate-400 font-medium mr-1">{timestamp}</span>
+              )}
+              {isMustSee && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[9px] font-bold text-amber-700 ring-1 ring-amber-600/15 shadow-sm">
+                  <Sparkles className="h-2.5 w-2.5 text-amber-500 fill-amber-400 animate-pulse" />
+                  Must See
+                </span>
+              )}
+              {actions}
+            </div>
+          </div>
+
+          {/* Description / Review Text */}
+          {description ? (
+            <p className="text-xs leading-relaxed text-slate-600 pl-5">
+              {description}
+            </p>
+          ) : (
+            <p className="text-xs italic text-slate-400 pl-5">
+              Keine Beschreibung hinterlassen.
+            </p>
+          )}
+
+          {/* Categories Tags */}
+          {categories.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1 pl-5">
+              {categories.map((category) => (
+                <span
+                  key={category}
+                  className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] font-semibold text-slate-600"
+                >
+                  {category}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Embedded Children (e.g. comments list) */}
+      {children}
+    </div>
+  );
+}

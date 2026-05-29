@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Map, { Marker, Popup } from "react-map-gl/mapbox";
 import { Search, Users, MapPin, Sparkles, Layers, Loader2, Bookmark, UserPlus } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 interface UserProfile {
@@ -66,6 +67,7 @@ const MAP_STYLES = [
 
 export default function MapViewContent() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
 
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
@@ -216,13 +218,35 @@ export default function MapViewContent() {
           .eq("user_id", authUser.id);
         setWishlistIds((wishlistEntries || []).map((w: any) => w.activity_id));
 
-        // Dynamically center map on first recommendation if exists
-        if (loadedPlaces.length > 0) {
+        // Dynamically center map on first recommendation if exists, unless overridden by search params
+        const urlParams = new URLSearchParams(window.location.search);
+        const latParam = urlParams.get("lat");
+        const lngParam = urlParams.get("lng");
+        const placeIdParam = urlParams.get("placeId");
+
+        if (latParam && lngParam) {
+          const lat = parseFloat(latParam);
+          const lng = parseFloat(lngParam);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            setViewState({
+              latitude: lat,
+              longitude: lng,
+              zoom: 15,
+            });
+          }
+        } else if (loadedPlaces.length > 0) {
           setViewState({
             latitude: loadedPlaces[0].latitude,
             longitude: loadedPlaces[0].longitude,
             zoom: 12,
           });
+        }
+
+        if (placeIdParam) {
+          const matched = loadedPlaces.find((p) => p.id === placeIdParam);
+          if (matched) {
+            setSelectedPlace(matched);
+          }
         }
       } catch (err) {
         console.error("Error loading map data:", err);
@@ -233,6 +257,35 @@ export default function MapViewContent() {
 
     loadMapData();
   }, []);
+
+  // Handle zoom and select from URL search params reactively
+  useEffect(() => {
+    if (places.length === 0) return;
+
+    const latParam = searchParams.get("lat");
+    const lngParam = searchParams.get("lng");
+    const placeIdParam = searchParams.get("placeId");
+
+    if (latParam && lngParam) {
+      const lat = parseFloat(latParam);
+      const lng = parseFloat(lngParam);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        setViewState((prev) => ({
+          ...prev,
+          latitude: lat,
+          longitude: lng,
+          zoom: 15,
+        }));
+      }
+    }
+
+    if (placeIdParam) {
+      const matched = places.find((p) => p.id === placeIdParam);
+      if (matched) {
+        setSelectedPlace(matched);
+      }
+    }
+  }, [searchParams, places]);
 
   const toggleWishlist = async (activityId: string) => {
     if (!user) return;
