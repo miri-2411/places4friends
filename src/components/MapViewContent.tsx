@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Map, { Marker, Popup } from "react-map-gl/mapbox";
-import { Search, Users, MapPin, Sparkles, Layers, Loader2, Bookmark } from "lucide-react";
+import { Search, Users, MapPin, Sparkles, Layers, Loader2, Bookmark, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -450,38 +450,50 @@ export default function MapViewContent() {
         </div>
       )}
 
-      {/* Floating Friends Filter Bar - Only shown if user is logged in and has friends */}
-      {user && friends.length > 0 && (
-        <div className="absolute top-4 left-4 right-4 z-10 flex gap-2 overflow-x-auto no-scrollbar py-1">
-          <button
-            onClick={() => handleSelectUser(null)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95 ${
-              selectedUser === null
-                ? "bg-brand-green-800 border-brand-green-800 text-white"
-                : "bg-white/95 border-slate-100 text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            <Users className="h-3.5 w-3.5" />
-            <span>Alle</span>
-          </button>
-
-          {friends.map((friend) => (
+      {/* Floating Friends Filter Bar or Add Friends Button */}
+      {!isLoading && (
+        user && friends.length > 0 ? (
+          <div className="absolute top-4 left-4 right-4 z-10 flex gap-2 overflow-x-auto no-scrollbar py-1">
             <button
-              key={friend.id}
-              onClick={() => handleSelectUser(friend.id)}
+              onClick={() => handleSelectUser(null)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95 ${
-                selectedUser === friend.id
+                selectedUser === null
                   ? "bg-brand-green-800 border-brand-green-800 text-white"
                   : "bg-white/95 border-slate-100 text-slate-700 hover:bg-slate-50"
               }`}
             >
-              <div className={`flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold text-white ${friend.color}`}>
-                {friend.initials}
-              </div>
-              <span>{friend.name}</span>
+              <Users className="h-3.5 w-3.5" />
+              <span>Alle</span>
             </button>
-          ))}
-        </div>
+
+            {friends.map((friend) => (
+              <button
+                key={friend.id}
+                onClick={() => handleSelectUser(friend.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95 ${
+                  selectedUser === friend.id
+                    ? "bg-brand-green-800 border-brand-green-800 text-white"
+                    : "bg-white/95 border-slate-100 text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <div className={`flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold text-white ${friend.color}`}>
+                  {friend.initials}
+                </div>
+                <span>{friend.name}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="absolute top-4 left-4 z-10 flex gap-2 py-1">
+            <Link
+              href="/profile/friends"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-100 bg-white/95 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              <span>Freunde hinzufügen</span>
+            </Link>
+          </div>
+        )
       )}
 
       {/* Mapbox Map */}

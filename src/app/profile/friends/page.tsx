@@ -14,7 +14,7 @@ export default async function FriendsPage() {
         <header className="sticky top-0 z-10 flex h-14 items-center justify-center border-b border-slate-100 bg-white px-4">
           <h1 className="text-lg font-bold text-slate-900">Freunde & Anfragen</h1>
         </header>
-        <AuthPrompt context="profile" />
+        <AuthPrompt context="friends" />
       </div>
     );
   }

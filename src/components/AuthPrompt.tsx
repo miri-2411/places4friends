@@ -1,12 +1,17 @@
 import Link from "next/link";
-import { LogIn, UserPlus, MapPin } from "lucide-react";
+import { LogIn, UserPlus, MapPin, Users, User, Activity } from "lucide-react";
 
-export default function AuthPrompt({ context }: { context: "profile" | "create" | "activities" }) {
+export default function AuthPrompt({ context }: { context: "profile" | "create" | "activities" | "friends" }) {
   const messages = {
     profile: {
       title: "Dein Profil",
       description:
         "Melde dich an oder erstelle ein Konto, um dein Profil zu sehen, Orte zu speichern und mit Freunden zu teilen.",
+    },
+    friends: {
+      title: "Freunde",
+      description:
+        "Melde dich an oder erstelle ein Konto, um deine Freunde zu verwalten, Anfragen zu senden und eure Lieblingsorte auf der Karte zu teilen.",
     },
     create: {
       title: "Ort empfehlen",
@@ -20,14 +25,27 @@ export default function AuthPrompt({ context }: { context: "profile" | "create" 
     },
   };
 
-
   const { title, description } = messages[context];
+
+  const getIcon = () => {
+    switch (context) {
+      case "profile":
+        return <User className="h-8 w-8" />;
+      case "activities":
+        return <Activity className="h-8 w-8" />;
+      case "friends":
+        return <Users className="h-8 w-8" />;
+      case "create":
+      default:
+        return <MapPin className="h-8 w-8" />;
+    }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center page-transition">
       {/* Icon */}
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-green-100 to-brand-green-200 text-brand-green-700 mb-5">
-        <MapPin className="h-8 w-8" />
+        {getIcon()}
       </div>
 
       <h2 className="text-lg font-bold text-slate-900">{title}</h2>

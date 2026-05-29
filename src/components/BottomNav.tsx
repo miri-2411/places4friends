@@ -1,68 +1,134 @@
 "use client";
- 
- import Link from "next/link";
- import { usePathname } from "next/navigation";
- import { MapPin, Plus, User, Activity, Users } from "lucide-react";
- 
- export default function BottomNav() {
-   const pathname = usePathname();
- 
-   const isTabActive = (path: string) => {
-     if (path === "/") {
-       return pathname === "/";
-     }
-     if (path === "/profile") {
-       return pathname === "/profile" || pathname.startsWith("/profile/settings");
-     }
-     if (path === "/profile/friends") {
-       return pathname.startsWith("/profile/friends");
-     }
-     return pathname.startsWith(path);
-   };
- 
-   const getTabClass = (path: string) => {
-     const active = isTabActive(path);
-     return `flex flex-col items-center justify-center gap-1 w-16 py-2 rounded-xl transition-all duration-200 ${
-       active
-         ? "text-brand-green-600 font-bold scale-105"
-         : "text-slate-400 hover:text-slate-600 active:scale-95"
-     }`;
-   };
- 
-   return (
-     <nav className="absolute bottom-0 left-0 right-0 z-50 w-full border-t border-slate-100 bg-white/90 pb-safe-bottom shadow-[0_-4px_24px_rgba(0,0,0,0.04)] backdrop-blur-md">
-       <div className="flex h-16 items-center justify-around px-2">
-         {/* Map Tab */}
-         <Link href="/" className={getTabClass("/")}>
-           <MapPin className={`h-5 w-5 transition-all duration-200 ${isTabActive("/") ? "stroke-[2.6]" : "stroke-[2]"}`} />
-           <span className="text-[10px] tracking-wide">Karte</span>
-         </Link>
- 
-         {/* Activities Tab */}
-         <Link href="/activities" className={getTabClass("/activities")}>
-           <Activity className={`h-5 w-5 transition-all duration-200 ${isTabActive("/activities") ? "stroke-[2.6]" : "stroke-[2]"}`} />
-           <span className="text-[10px] tracking-wide">Aktivitäten</span>
-         </Link>
- 
-         {/* Create / Recommend Tab */}
-         <Link href="/create" className={getTabClass("/create")}>
-           <Plus className={`h-5 w-5 transition-all duration-200 ${isTabActive("/create") ? "stroke-[2.8]" : "stroke-[2]"}`} />
-           <span className="text-[10px] tracking-wide">Empfehlen</span>
-         </Link>
- 
-         {/* Friends Tab */}
-         <Link href="/profile/friends" className={getTabClass("/profile/friends")}>
-           <Users className={`h-5 w-5 transition-all duration-200 ${isTabActive("/profile/friends") ? "stroke-[2.6]" : "stroke-[2]"}`} />
-           <span className="text-[10px] tracking-wide">Freunde</span>
-         </Link>
- 
-         {/* Profile Tab */}
-         <Link href="/profile" className={getTabClass("/profile")}>
-           <User className={`h-5 w-5 transition-all duration-200 ${isTabActive("/profile") ? "stroke-[2.6]" : "stroke-[2]"}`} />
-           <span className="text-[10px] tracking-wide">Profil</span>
-         </Link>
-       </div>
-     </nav>
-   );
- }
 
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { MapPin, Plus, User, Activity, Users } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+
+export default function BottomNav() {
+  const pathname = usePathname();
+  const supabase = createClient();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    let channel: any = null;
+
+    async function loadPendingCount() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!active) return;
+        if (!user) {
+          setPendingCount(0);
+          return;
+        }
+
+        const fetchCount = async () => {
+          const { count, error } = await supabase
+            .from("friendships")
+            .select("*", { count: "exact", head: true })
+            .eq("receiver_id", user.id)
+            .eq("status", "pending");
+
+          if (!error && count !== null && active) {
+            setPendingCount(count);
+          }
+        };
+
+        await fetchCount();
+
+        channel = supabase
+          .channel("pending-friendships")
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "friendships",
+            },
+            () => {
+              fetchCount();
+            }
+          )
+          .subscribe();
+      } catch (err) {
+        console.error("Error loading pending count:", err);
+      }
+    }
+
+    loadPendingCount();
+
+    return () => {
+      active = false;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [pathname, supabase]);
+
+  const isTabActive = (path: string) => {
+    if (path === "/") {
+      return pathname === "/";
+    }
+    if (path === "/profile") {
+      return pathname === "/profile" || pathname.startsWith("/profile/settings");
+    }
+    if (path === "/profile/friends") {
+      return pathname.startsWith("/profile/friends");
+    }
+    return pathname.startsWith(path);
+  };
+
+  const getTabClass = (path: string) => {
+    const active = isTabActive(path);
+    return `flex flex-col items-center justify-center gap-1 w-16 py-2 rounded-xl transition-all duration-200 ${
+      active
+        ? "text-brand-green-600 font-bold scale-105"
+        : "text-slate-400 hover:text-slate-600 active:scale-95"
+    }`;
+  };
+
+  return (
+    <nav className="absolute bottom-0 left-0 right-0 z-50 w-full border-t border-slate-100 bg-white/90 pb-safe-bottom shadow-[0_-4px_24px_rgba(0,0,0,0.04)] backdrop-blur-md">
+      <div className="flex h-16 items-center justify-around px-2">
+        {/* Map Tab */}
+        <Link href="/" className={getTabClass("/")}>
+          <MapPin className={`h-5 w-5 transition-all duration-200 ${isTabActive("/") ? "stroke-[2.6]" : "stroke-[2]"}`} />
+          <span className="text-[10px] tracking-wide">Karte</span>
+        </Link>
+
+        {/* Activities Tab */}
+        <Link href="/activities" className={getTabClass("/activities")}>
+          <Activity className={`h-5 w-5 transition-all duration-200 ${isTabActive("/activities") ? "stroke-[2.6]" : "stroke-[2]"}`} />
+          <span className="text-[10px] tracking-wide">Aktivitäten</span>
+        </Link>
+
+        {/* Create / Recommend Tab */}
+        <Link href="/create" className={getTabClass("/create")}>
+          <Plus className={`h-5 w-5 transition-all duration-200 ${isTabActive("/create") ? "stroke-[2.8]" : "stroke-[2]"}`} />
+          <span className="text-[10px] tracking-wide">Empfehlen</span>
+        </Link>
+
+        {/* Friends Tab */}
+        <Link href="/profile/friends" className={getTabClass("/profile/friends")}>
+          <div className="relative">
+            <Users className={`h-5 w-5 transition-all duration-200 ${isTabActive("/profile/friends") ? "stroke-[2.6]" : "stroke-[2]"}`} />
+            {pendingCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand-green-600 text-[8px] font-extrabold text-white ring-2 ring-white">
+                {pendingCount}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] tracking-wide">Freunde</span>
+        </Link>
+
+        {/* Profile Tab */}
+        <Link href="/profile" className={getTabClass("/profile")}>
+          <User className={`h-5 w-5 transition-all duration-200 ${isTabActive("/profile") ? "stroke-[2.6]" : "stroke-[2]"}`} />
+          <span className="text-[10px] tracking-wide">Profil</span>
+        </Link>
+      </div>
+    </nav>
+  );
+}
