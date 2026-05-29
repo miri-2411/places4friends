@@ -19,5 +19,9 @@ export default async function CreatePage() {
     );
   }
 
-  return <RecommendView />;
+  return (
+    <div className="h-full w-full">
+      <RecommendView />
+    </div>
+  );
 }
