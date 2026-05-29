@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { 
   Search, 
@@ -59,6 +59,7 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
   const [submittingIds, setSubmittingIds] = useState<Record<string, boolean>>({});
   const [activeDropdownFriendId, setActiveDropdownFriendId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleShareInviteLink = async () => {
     const inviteUrl = `${window.location.origin}/profile/${currentUser.id}?invite=true`;
@@ -209,16 +210,21 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
     };
   }, [fetchFriendships, supabase]);
 
-  // Handle Search Query Submission
-  const handleSearch = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!searchQuery.trim()) {
+  // Execute the search query
+  const executeSearch = useCallback(async (query: string) => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+      searchTimeoutRef.current = null;
+    }
+
+    const trimmed = query.trim();
+    if (!trimmed) {
       setSearchResults([]);
       return;
     }
 
     setIsSearching(true);
-    const queryValue = `%${searchQuery.trim()}%`;
+    const queryValue = `%${trimmed}%`;
     const { data, error } = await supabase
       .from("profiles")
       .select("id, username, full_name, avatar_url")
@@ -238,9 +244,42 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
     }));
     setSearchResults(enriched);
     setIsSearching(false);
-  };
+  }, [currentUser.id, supabase]);
 
-  // Search results are cleared directly via input change handler
+  // Debounce search input changes
+  useEffect(() => {
+    if (!isSearchModalOpen) return;
+
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+        searchTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      executeSearch(searchQuery);
+    }, 400); // 400ms delay
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, executeSearch, isSearchModalOpen]);
+
+  // Handle manual Search Query Submission
+  const handleSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    await executeSearch(searchQuery);
+  };
 
   // Get current friendship status relative to a profile
   const getRelationship = (profileId: string) => {
