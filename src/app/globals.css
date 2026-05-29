@@ -56,3 +56,25 @@ body {
     transform: translateY(0);
   }
 }
+
+/* Ensure all interactive and clickable elements have a pointer cursor on hover */
+a,
+button,
+select,
+summary,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+input[type="checkbox"],
+input[type="radio"],
+[role="button"],
+[role="tab"],
+[role="link"],
+[role="menuitem"],
+[role="checkbox"],
+[role="radio"],
+[role="switch"],
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
