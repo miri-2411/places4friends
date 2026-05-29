@@ -22,6 +22,7 @@ interface PlaceItem {
   review: string;
   timestamp: string;
   categories?: string[];
+  imageUrls?: string[];
 }
 
 export default function PublicProfileView({
@@ -147,6 +148,7 @@ export default function PublicProfileView({
                   description={place.review}
                   categories={place.categories}
                   timestamp={place.timestamp}
+                  imageUrls={place.imageUrls}
                   actions={
                     <button
                       onClick={() => toggleWishlist(place.id)}

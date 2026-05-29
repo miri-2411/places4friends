@@ -23,6 +23,7 @@ interface ActivityItem {
   friend: FriendInfo;
   latitude?: number | null;
   longitude?: number | null;
+  imageUrls?: string[];
 }
 
 export default function ActivitiesView({
@@ -97,6 +98,7 @@ export default function ActivitiesView({
                 categories={activity.categories}
                 timestamp={activity.timestamp}
                 friend={activity.friend}
+                imageUrls={activity.imageUrls}
                 actions={
                   <button
                     onClick={() => toggleWishlist(activity.id)}

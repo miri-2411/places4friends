@@ -9,7 +9,10 @@ import {
   Sparkles,
   MapPin,
   Loader2,
+  Image as ImageIcon,
+  X,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 interface PlaceResult {
   id: string;
@@ -46,6 +49,7 @@ export default function RecommendView() {
   const [isSuperLike, setIsSuperLike] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [description, setDescription] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<
@@ -66,6 +70,28 @@ export default function RecommendView() {
     setIsSuperLike(false);
     setSelectedCategories([]);
     setDescription("");
+    setSelectedFiles([]);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      setSelectedFiles((prev) => {
+        const combined = [...prev, ...filesArray];
+        if (combined.length > 3) {
+          setFeedback({
+            type: "error",
+            message: "Du kannst maximal 3 Bilder hochladen.",
+          });
+          return combined.slice(0, 3);
+        }
+        return combined;
+      });
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const toggleCategory = (category: string) => {
@@ -134,7 +160,31 @@ export default function RecommendView() {
         };
 
     setIsSaving(true);
+    let uploadedUrls: string[] = [];
+
     try {
+      if (selectedFiles.length > 0) {
+        const supabase = createClient();
+        for (const file of selectedFiles) {
+          const fileExt = file.name.split(".").pop();
+          const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from("activity-images")
+            .upload(fileName, file);
+
+          if (uploadError) {
+            throw new Error(`Fehler beim Hochladen eines Bildes: ${uploadError.message}`);
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from("activity-images")
+            .getPublicUrl(fileName);
+
+          uploadedUrls.push(publicUrl);
+        }
+      }
+
       const response = await fetch("/api/recommendations", {
         method: "POST",
         headers: {
@@ -145,6 +195,7 @@ export default function RecommendView() {
           isSuperLike,
           categories: selectedCategories,
           description: description.trim() || null,
+          imageUrls: uploadedUrls,
         }),
       });
       const data = await response.json();
@@ -435,6 +486,45 @@ export default function RecommendView() {
                   rows={4}
                   className="w-full bg-transparent text-[14px] text-slate-800 placeholder-slate-400 outline-none resize-none"
                 />
+              </div>
+            </div>
+
+            {/* Image Upload Input */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Bilder (optional, max. 3)
+              </label>
+              <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
+                <div className="grid grid-cols-3 gap-2">
+                  {selectedFiles.map((file, idx) => {
+                    const previewUrl = URL.createObjectURL(file);
+                    return (
+                      <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-slate-100 bg-slate-50 group">
+                        <img src={previewUrl} alt="Vorschau" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeFile(idx)}
+                          className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900/60 text-white hover:bg-slate-950 transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {selectedFiles.length < 3 && (
+                    <label className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50/50 hover:bg-slate-50 transition-all hover:border-brand-green-500">
+                      <ImageIcon className="h-5 w-5 text-slate-400" />
+                      <span className="mt-1 text-[10px] font-semibold text-slate-500">Bild hinzufügen</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
             </div>
           </form>

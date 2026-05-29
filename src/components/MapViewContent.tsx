@@ -26,6 +26,7 @@ interface Place {
   isMustSee: boolean;
   review: string;
   categories: string[];
+  imageUrls?: string[];
 }
 
 interface ActivityComment {
@@ -183,7 +184,7 @@ export default function MapViewContent() {
         const allowedUserIds = [authUser.id, ...loadedFriends.map((f) => f.id)];
         const { data: activities } = await supabase
           .from("activities")
-          .select("id, user_id, place_id, place_name, place_address, latitude, longitude, is_superlike, description, categories")
+          .select("id, user_id, place_id, place_name, place_address, latitude, longitude, is_superlike, description, categories, image_urls")
           .in("user_id", allowedUserIds);
 
         const loadedPlaces = (activities || [])
@@ -206,6 +207,7 @@ export default function MapViewContent() {
               isMustSee: act.is_superlike,
               review: act.description || "",
               categories: Array.isArray(act.categories) ? act.categories : [],
+              imageUrls: Array.isArray(act.image_urls) ? act.image_urls : [],
             };
           });
 
@@ -638,6 +640,20 @@ export default function MapViewContent() {
                 <p className="mt-2 text-xs text-slate-600 leading-relaxed">
                   {selectedPlace.review}
                 </p>
+
+                {selectedPlace.imageUrls && selectedPlace.imageUrls.length > 0 && (
+                  <div className="mt-2.5 grid grid-cols-3 gap-1">
+                    {selectedPlace.imageUrls.map((url, idx) => (
+                      <div
+                        key={idx}
+                        className="relative aspect-square rounded-lg overflow-hidden border border-slate-100 bg-slate-50 cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => window.open(url, "_blank")}
+                      >
+                        <img src={url} alt={`Bild ${idx + 1}`} className="h-full w-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {selectedPlace.categories.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-1.5">

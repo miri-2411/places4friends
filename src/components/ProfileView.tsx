@@ -23,6 +23,7 @@ interface PlaceItem {
   review: string;
   timestamp: string;
   categories?: string[];
+  imageUrls?: string[];
 }
 
 interface WishlistItem {
@@ -35,6 +36,7 @@ interface WishlistItem {
   review: string;
   timestamp: string;
   categories?: string[];
+  imageUrls?: string[];
   friend: {
     id: string;
     name: string;
@@ -522,6 +524,7 @@ export default function ProfileView({
                       description={place.review}
                       categories={place.categories}
                       timestamp={place.timestamp}
+                      imageUrls={place.imageUrls}
                       isEditing={editingId === place.id}
                       editForm={
                         <div className="space-y-2">
@@ -757,6 +760,7 @@ export default function ProfileView({
                     categories={item.categories}
                     timestamp={item.timestamp}
                     friend={item.friend}
+                    imageUrls={item.imageUrls}
                     actions={
                       <button
                         onClick={() => handleRemoveFromWishlist(item.activityId)}

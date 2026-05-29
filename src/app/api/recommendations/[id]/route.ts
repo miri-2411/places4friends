@@ -116,6 +116,14 @@ export async function DELETE(
     return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
   }
 
+  // Fetch the activity first to get the image_urls
+  const { data: activity } = await supabase
+    .from("activities")
+    .select("image_urls")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   const { data, error } = await supabase
     .from("activities")
     .delete()
@@ -139,6 +147,17 @@ export async function DELETE(
 
   if (!data) {
     return NextResponse.json({ error: "Nicht gefunden." }, { status: 404 });
+  }
+
+  // Clean up storage files if present
+  if (activity?.image_urls && activity.image_urls.length > 0) {
+    const fileNames = activity.image_urls.map((url: string) => {
+      const parts = url.split("/");
+      return parts[parts.length - 1];
+    });
+    if (fileNames.length > 0) {
+      await supabase.storage.from("activity-images").remove(fileNames);
+    }
   }
 
   return NextResponse.json({ id: data.id });

@@ -36,7 +36,7 @@ export default async function ProfilePage() {
   // Fetch activities (recommendations)
   const { data: activities } = await supabase
     .from("activities")
-    .select("id, place_name, latitude, longitude, is_superlike, description, created_at, categories")
+    .select("id, place_name, latitude, longitude, is_superlike, description, created_at, categories, image_urls")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -48,6 +48,7 @@ export default async function ProfilePage() {
     isMustSee: act.is_superlike,
     review: act.description || "",
     categories: Array.isArray(act.categories) ? act.categories : [],
+    imageUrls: Array.isArray(act.image_urls) ? act.image_urls : [],
     timestamp: formatTimestamp(act.created_at),
   }));
 
@@ -67,7 +68,8 @@ export default async function ProfilePage() {
         is_superlike,
         description,
         categories,
-        created_at
+        created_at,
+        image_urls
       )
     `)
     .eq("user_id", user.id)
@@ -104,6 +106,7 @@ export default async function ProfilePage() {
       isMustSee: act.is_superlike,
       review: act.description || "",
       categories: Array.isArray(act.categories) ? act.categories : [],
+      imageUrls: Array.isArray(act.image_urls) ? act.image_urls : [],
       timestamp: formatTimestamp(w.created_at),
       friend: {
         id: act.user_id,

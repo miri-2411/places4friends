@@ -97,7 +97,7 @@ export default async function PublicProfilePage({
   // Fetch friend's activities
   const { data: activities } = await supabase
     .from("activities")
-    .select("id, place_name, latitude, longitude, is_superlike, description, created_at, categories")
+    .select("id, place_name, latitude, longitude, is_superlike, description, created_at, categories, image_urls")
     .eq("user_id", friendId)
     .order("created_at", { ascending: false });
 
@@ -109,6 +109,7 @@ export default async function PublicProfilePage({
     isMustSee: act.is_superlike,
     review: act.description || "",
     categories: Array.isArray(act.categories) ? act.categories : [],
+    imageUrls: Array.isArray(act.image_urls) ? act.image_urls : [],
     timestamp: formatTimestamp(act.created_at),
   }));
 

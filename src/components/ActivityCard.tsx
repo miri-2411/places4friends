@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { MapPin, Sparkles } from "lucide-react";
+import { MapPin, Sparkles, X } from "lucide-react";
 
 export interface FriendInfo {
   id: string;
@@ -26,6 +26,7 @@ export interface ActivityCardProps {
   isEditing?: boolean;
   editForm?: React.ReactNode;
   children?: React.ReactNode;
+  imageUrls?: string[];
 }
 
 export default function ActivityCard({
@@ -42,7 +43,9 @@ export default function ActivityCard({
   isEditing = false,
   editForm,
   children,
+  imageUrls = [],
 }: ActivityCardProps) {
+  const [activeImageUrl, setActiveImageUrl] = useState<string | null>(null);
   const hasCoordinates =
     latitude !== undefined &&
     latitude !== null &&
@@ -133,9 +136,35 @@ export default function ActivityCard({
             </p>
           )}
 
+          {/* Image Gallery */}
+          {imageUrls && imageUrls.length > 0 && (
+            <div className="pl-5 pt-2">
+              <div className={`grid gap-2 ${
+                imageUrls.length === 1 ? "grid-cols-1" :
+                imageUrls.length === 2 ? "grid-cols-2" : "grid-cols-3"
+              }`}>
+                {imageUrls.map((url, idx) => (
+                  <div
+                    key={idx}
+                    className={`relative rounded-xl overflow-hidden border border-slate-100 bg-slate-50 cursor-pointer shadow-sm active:scale-[0.99] transition-all ${
+                      imageUrls.length === 1 ? "aspect-[16/10] max-h-56" : "aspect-square"
+                    }`}
+                    onClick={() => setActiveImageUrl(url)}
+                  >
+                    <img
+                      src={url}
+                      alt={`Bild ${idx + 1}`}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Categories Tags */}
           {categories.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pt-1 pl-5">
+            <div className="flex flex-wrap gap-1.5 pt-1.5 pl-5">
               {categories.map((category) => (
                 <span
                   key={category}
@@ -151,6 +180,24 @@ export default function ActivityCard({
 
       {/* Embedded Children (e.g. comments list) */}
       {children}
+
+      {/* Lightbox Modal */}
+      {activeImageUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm transition-all duration-300"
+          onClick={() => setActiveImageUrl(null)}
+        >
+          <div className="relative max-h-[90vh] max-w-[90vw] overflow-hidden rounded-2xl bg-black shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <img src={activeImageUrl} alt="Fullscreen View" className="max-h-[85vh] max-w-[85vw] object-contain" />
+            <button
+              onClick={() => setActiveImageUrl(null)}
+              className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/85 transition-colors cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

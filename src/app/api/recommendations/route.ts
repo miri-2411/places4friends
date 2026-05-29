@@ -10,6 +10,7 @@ interface RecommendationPayload {
   isSuperLike: boolean;
   categories?: string[] | null;
   description: string | null;
+  imageUrls?: string[] | null;
 }
 
 const ALLOWED_CATEGORIES = new Set([
@@ -55,6 +56,9 @@ export async function POST(request: Request) {
   }
 
   const categories = normalizeCategories(payload.categories);
+  const imageUrls = Array.isArray(payload.imageUrls)
+    ? payload.imageUrls.filter((url): url is string => typeof url === "string")
+    : [];
 
   const { data, error } = await supabase
     .from("activities")
@@ -68,6 +72,7 @@ export async function POST(request: Request) {
       is_superlike: payload.isSuperLike,
       categories,
       description: payload.description?.trim() || null,
+      image_urls: imageUrls,
     })
     .select("id")
     .single();

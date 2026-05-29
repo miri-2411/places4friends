@@ -89,7 +89,7 @@ export default async function ActivitiesPage() {
   if (friendIds.length > 0) {
     const { data } = await supabase
       .from("activities")
-      .select("id, user_id, place_name, latitude, longitude, is_superlike, description, created_at, categories")
+      .select("id, user_id, place_name, latitude, longitude, is_superlike, description, created_at, categories, image_urls")
       .in("user_id", friendIds)
       .order("created_at", { ascending: false });
     
@@ -112,6 +112,7 @@ export default async function ActivitiesPage() {
           isMustSee: act.is_superlike,
           description: act.description || "",
           categories: Array.isArray(act.categories) ? act.categories : [],
+          imageUrls: Array.isArray(act.image_urls) ? act.image_urls : [],
           timestamp: formatTimestamp(act.created_at),
           friend: {
             id: act.user_id,
