@@ -80,7 +80,7 @@ export default async function ProfilePage() {
   if (wishlistFriendIds.length > 0) {
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, username, full_name")
+      .select("id, username, full_name, avatar_url")
       .in("id", wishlistFriendIds);
     wishlistFriendProfiles = profiles || [];
   }
@@ -96,6 +96,9 @@ export default async function ProfilePage() {
       .slice(0, 2)
       .join("")
       .toUpperCase() || "?";
+    const friendAvatarUrl = friend?.avatar_url
+      ? `${supabase.storage.from("avatars").getPublicUrl(friend.avatar_url).data.publicUrl}?t=${Date.now()}`
+      : null;
 
     return {
       id: w.id,
@@ -114,6 +117,7 @@ export default async function ProfilePage() {
         username: friend?.username ?? "",
         initials: friendInitials,
         color: getUserColorClass(act.user_id),
+        avatarUrl: friendAvatarUrl,
       }
     };
   }).filter((w): w is Exclude<typeof w, null> => w !== null);

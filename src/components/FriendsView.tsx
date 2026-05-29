@@ -20,6 +20,8 @@ interface Profile {
   id: string;
   username: string | null;
   full_name: string | null;
+  avatar_url?: string | null;
+  avatarUrl?: string | null;
 }
 
 interface Friendship {
@@ -52,6 +54,12 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [submittingIds, setSubmittingIds] = useState<Record<string, boolean>>({});
 
+  const getAvatarPublicUrl = (path?: string | null) => {
+    if (!path) return null;
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    return `${data.publicUrl}?t=${Date.now()}`;
+  };
+
   // Fetch friendships and classify them
   const fetchFriendships = useCallback(async () => {
     const { data, error } = await supabase
@@ -61,8 +69,8 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
         sender_id,
         receiver_id,
         status,
-        sender:profiles!friendships_sender_id_fkey(id, username, full_name),
-        receiver:profiles!friendships_receiver_id_fkey(id, username, full_name)
+        sender:profiles!friendships_sender_id_fkey(id, username, full_name, avatar_url),
+        receiver:profiles!friendships_receiver_id_fkey(id, username, full_name, avatar_url)
       `)
       .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`);
 
@@ -101,6 +109,8 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
           id: otherUser.id,
           username: otherUser.username,
           full_name: otherUser.full_name,
+          avatar_url: otherUser.avatar_url,
+          avatarUrl: getAvatarPublicUrl(otherUser.avatar_url),
           friendshipId: row.id,
         });
       } else if (row.status === "pending" && row.receiver_id === currentUser.id) {
@@ -108,6 +118,8 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
           id: otherUser.id,
           username: otherUser.username,
           full_name: otherUser.full_name,
+          avatar_url: otherUser.avatar_url,
+          avatarUrl: getAvatarPublicUrl(otherUser.avatar_url),
           friendshipId: row.id,
         });
       }
@@ -138,7 +150,7 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
     const queryValue = `%${searchQuery.trim()}%`;
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, username, full_name")
+      .select("id, username, full_name, avatar_url")
       .or(`username.ilike.${queryValue},full_name.ilike.${queryValue}`)
       .neq("id", currentUser.id)
       .limit(15);
@@ -149,7 +161,11 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
       return;
     }
 
-    setSearchResults(data || []);
+    const enriched = (data || []).map((profile) => ({
+      ...profile,
+      avatarUrl: getAvatarPublicUrl(profile.avatar_url),
+    }));
+    setSearchResults(enriched);
     setIsSearching(false);
   };
 
@@ -321,8 +337,16 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
                             className="flex items-center gap-3 hover:opacity-80 active:scale-[0.98] transition-all cursor-pointer group"
                           >
                             {/* Avatar */}
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-brand-green-700 to-brand-green-500 text-white font-bold text-xs shadow-sm group-hover:scale-105 transition-transform duration-200">
-                              {getInitials(friend.full_name, friend.username)}
+                            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-brand-green-700 to-brand-green-500 text-white font-bold text-xs shadow-sm group-hover:scale-105 transition-transform duration-200">
+                              {friend.avatarUrl ? (
+                                <img
+                                  src={friend.avatarUrl}
+                                  alt="Profilbild"
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                getInitials(friend.full_name, friend.username)
+                              )}
                             </div>
                             <div>
                               <h4 className="text-xs font-bold text-slate-900 group-hover:text-brand-green-700 transition-colors">
@@ -388,8 +412,16 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
                         <div key={req.id} className="flex items-center justify-between p-3 first:pt-2 last:pb-2">
                           <div className="flex items-center gap-3">
                             {/* Avatar */}
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-brand-green-700 to-brand-green-500 text-white font-bold text-xs shadow-sm">
-                              {getInitials(req.full_name, req.username)}
+                            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-brand-green-700 to-brand-green-500 text-white font-bold text-xs shadow-sm">
+                              {req.avatarUrl ? (
+                                <img
+                                  src={req.avatarUrl}
+                                  alt="Profilbild"
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                getInitials(req.full_name, req.username)
+                              )}
                             </div>
                             <div>
                               <h4 className="text-xs font-bold text-slate-900">
@@ -508,8 +540,16 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
                         <div key={profile.id} className="flex items-center justify-between p-3 first:pt-2 last:pb-2">
                           <div className="flex items-center gap-3">
                             {/* Avatar */}
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-brand-green-700 to-brand-green-500 text-white font-bold text-xs shadow-sm">
-                              {getInitials(profile.full_name, profile.username)}
+                            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-brand-green-700 to-brand-green-500 text-white font-bold text-xs shadow-sm">
+                              {profile.avatarUrl ? (
+                                <img
+                                  src={profile.avatarUrl}
+                                  alt="Profilbild"
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                getInitials(profile.full_name, profile.username)
+                              )}
                             </div>
                             <div>
                               <h4 className="text-xs font-bold text-slate-900">

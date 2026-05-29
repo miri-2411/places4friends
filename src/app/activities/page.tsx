@@ -73,8 +73,8 @@ export default async function ActivitiesPage() {
       sender_id,
       receiver_id,
       status,
-      sender:profiles!friendships_sender_id_fkey(id, username, full_name),
-      receiver:profiles!friendships_receiver_id_fkey(id, username, full_name)
+      sender:profiles!friendships_sender_id_fkey(id, username, full_name, avatar_url),
+      receiver:profiles!friendships_receiver_id_fkey(id, username, full_name, avatar_url)
     `)
     .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
     .eq("status", "accepted");
@@ -103,6 +103,9 @@ export default async function ActivitiesPage() {
           .slice(0, 2)
           .join("")
           .toUpperCase() || "?";
+        const avatarUrl = friend?.avatar_url
+          ? `${supabase.storage.from("avatars").getPublicUrl(friend.avatar_url).data.publicUrl}?t=${Date.now()}`
+          : null;
 
         return {
           id: act.id,
@@ -120,6 +123,7 @@ export default async function ActivitiesPage() {
             username: friend?.username ?? "",
             initials,
             color: getUserColorClass(act.user_id),
+            avatarUrl,
           }
         };
       });

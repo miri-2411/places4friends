@@ -10,6 +10,7 @@ export interface FriendInfo {
   username: string;
   initials: string;
   color: string;
+  avatarUrl?: string | null;
 }
 
 export interface ActivityCardProps {
@@ -59,9 +60,17 @@ export default function ActivityCard({
         <div className="flex items-center justify-between border-b border-slate-50 pb-3 mb-3">
           <Link href={`/profile/${friend.id}`} className="flex items-center gap-2.5 hover:opacity-90">
             <div
-              className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm ${friend.color}`}
+              className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white shadow-sm ${friend.color}`}
             >
-              {friend.initials}
+              {friend.avatarUrl ? (
+                <img
+                  src={friend.avatarUrl}
+                  alt="Profilbild"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                friend.initials
+              )}
             </div>
             <div>
               <h4 className="text-xs font-bold text-slate-800">

@@ -12,6 +12,7 @@ interface UserProfile {
   name: string;
   initials: string;
   color: string;
+  avatarUrl?: string | null;
 }
 
 interface Place {
@@ -20,6 +21,7 @@ interface Place {
   userName: string;
   userInitials: string;
   userColor: string;
+  userAvatarUrl?: string | null;
   name: string;
   latitude: number;
   longitude: number;
@@ -35,6 +37,7 @@ interface ActivityComment {
   userName: string;
   userInitials: string;
   userColor: string;
+  userAvatarUrl?: string | null;
   content: string;
   createdAt: string;
 }
@@ -119,7 +122,7 @@ export default function MapViewContent() {
         // Fetch own profile
         const { data: ownProfile } = await supabase
           .from("profiles")
-          .select("id, username, full_name")
+          .select("id, username, full_name, avatar_url")
           .eq("id", authUser.id)
           .single();
 
@@ -131,11 +134,17 @@ export default function MapViewContent() {
             sender_id,
             receiver_id,
             status,
-            sender:profiles!friendships_sender_id_fkey(id, username, full_name),
-            receiver:profiles!friendships_receiver_id_fkey(id, username, full_name)
+            sender:profiles!friendships_sender_id_fkey(id, username, full_name, avatar_url),
+            receiver:profiles!friendships_receiver_id_fkey(id, username, full_name, avatar_url)
           `)
           .or(`sender_id.eq.${authUser.id},receiver_id.eq.${authUser.id}`)
           .eq("status", "accepted");
+
+        const getAvatarPublicUrl = (path?: string | null) => {
+          if (!path) return null;
+          const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+          return `${data.publicUrl}?t=${Date.now()}`;
+        };
 
         const loadedFriends = (friendships || []).map((f: any) => {
           const otherProfile = f.sender_id === authUser.id ? f.receiver : f.sender;
@@ -151,13 +160,14 @@ export default function MapViewContent() {
             name,
             initials,
             color: getUserColorClass(otherProfile.id),
+            avatarUrl: getAvatarPublicUrl(otherProfile.avatar_url),
           };
         });
 
         setFriends(loadedFriends);
 
         // Profile lookup map
-        const profileMap = new globalThis.Map<string, { name: string; initials: string; color: string }>();
+        const profileMap = new globalThis.Map<string, { name: string; initials: string; color: string; avatarUrl?: string | null }>();
         const ownName = ownProfile?.full_name ?? ownProfile?.username ?? "Ich";
         const ownInitials = ownName
           .split(" ")
@@ -170,6 +180,7 @@ export default function MapViewContent() {
           name: ownName,
           initials: ownInitials,
           color: getUserColorClass(authUser.id),
+          avatarUrl: getAvatarPublicUrl(ownProfile?.avatar_url),
         });
 
         loadedFriends.forEach((f) => {
@@ -177,6 +188,7 @@ export default function MapViewContent() {
             name: f.name,
             initials: f.initials,
             color: f.color,
+            avatarUrl: f.avatarUrl,
           });
         });
 
@@ -194,6 +206,7 @@ export default function MapViewContent() {
               name: "Unbekannt",
               initials: "?",
               color: "bg-slate-500",
+              avatarUrl: null,
             };
             return {
               id: act.id,
@@ -201,6 +214,7 @@ export default function MapViewContent() {
               userName: prof.name,
               userInitials: prof.initials,
               userColor: prof.color,
+              userAvatarUrl: prof.avatarUrl ?? null,
               name: act.place_name,
               latitude: act.latitude as number,
               longitude: act.longitude as number,
@@ -324,7 +338,7 @@ export default function MapViewContent() {
     const { data, error } = await supabase
       .from("activity_comments")
       .select(
-        "id, content, created_at, user_id, profiles:profiles!activity_comments_user_id_fkey(id, username, full_name)"
+        "id, content, created_at, user_id, profiles:profiles!activity_comments_user_id_fkey(id, username, full_name, avatar_url)"
       )
       .eq("activity_id", activityId)
       .order("created_at", { ascending: true });
@@ -344,12 +358,16 @@ export default function MapViewContent() {
           .slice(0, 2)
           .join("")
           .toUpperCase() || "?";
+        const avatarUrl = profile?.avatar_url
+          ? `${supabase.storage.from("avatars").getPublicUrl(profile.avatar_url).data.publicUrl}?t=${Date.now()}`
+          : null;
         return {
           id: row.id,
           userId: row.user_id,
           userName: name,
           userInitials: initials,
           userColor: getUserColorClass(row.user_id),
+          userAvatarUrl: avatarUrl,
           content: row.content,
           createdAt: row.created_at,
         } as ActivityComment;
@@ -531,8 +549,16 @@ export default function MapViewContent() {
                     : "bg-white/95 border-slate-100 text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                <div className={`flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold text-white ${friend.color}`}>
-                  {friend.initials}
+                <div className={`flex h-5 w-5 items-center justify-center overflow-hidden rounded-full text-[9px] font-bold text-white ${friend.color}`}>
+                  {friend.avatarUrl ? (
+                    <img
+                      src={friend.avatarUrl}
+                      alt="Profilbild"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    friend.initials
+                  )}
                 </div>
                 <span>{friend.name}</span>
               </button>
@@ -631,8 +657,16 @@ export default function MapViewContent() {
                 </div>
 
                 <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-500">
-                  <div className={`flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-bold text-white ${selectedPlace.userColor}`}>
-                    {selectedPlace.userInitials}
+                  <div className={`flex h-4 w-4 items-center justify-center overflow-hidden rounded-full text-[8px] font-bold text-white ${selectedPlace.userColor}`}>
+                    {selectedPlace.userAvatarUrl ? (
+                      <img
+                        src={selectedPlace.userAvatarUrl}
+                        alt="Profilbild"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      selectedPlace.userInitials
+                    )}
                   </div>
                   <span>Empfohlen von {selectedPlace.userName}</span>
                 </div>
@@ -693,8 +727,16 @@ export default function MapViewContent() {
                     <div className="mt-2 space-y-2">
                       {comments.map((comment) => (
                         <div key={comment.id} className="flex gap-2">
-                          <div className={`flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold text-white ${comment.userColor}`}>
-                            {comment.userInitials}
+                          <div className={`flex h-5 w-5 items-center justify-center overflow-hidden rounded-full text-[8px] font-bold text-white ${comment.userColor}`}>
+                            {comment.userAvatarUrl ? (
+                              <img
+                                src={comment.userAvatarUrl}
+                                alt="Profilbild"
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              comment.userInitials
+                            )}
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2">

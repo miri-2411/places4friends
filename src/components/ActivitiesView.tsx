@@ -11,6 +11,7 @@ interface FriendInfo {
   username: string;
   initials: string;
   color: string;
+  avatarUrl?: string | null;
 }
 
 interface ActivityItem {
