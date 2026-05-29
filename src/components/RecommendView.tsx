@@ -47,6 +47,13 @@ const CATEGORIES = [
   "Park",
   "Natur",
   "Sehenswürdigkeit",
+  "Date",
+  "Freizeit",
+  "Piss-Spot",
+  "Bildung",
+  "Einkaufen",
+  "Sport",
+  "Event",
 ];
 
 const MAP_STYLES = [

@@ -70,6 +70,13 @@ const CATEGORY_OPTIONS = [
   "Park",
   "Natur",
   "Sehenswürdigkeit",
+  "Date",
+  "Freizeit",
+  "Piss-Spot",
+  "Bildung",
+  "Einkaufen",
+  "Sport",
+  "Event",
 ];
 
 export default function ProfileView({ 

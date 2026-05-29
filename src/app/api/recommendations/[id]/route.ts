@@ -11,6 +11,13 @@ const ALLOWED_CATEGORIES = new Set([
   "Park",
   "Natur",
   "Sehenswürdigkeit",
+  "Date",
+  "Freizeit",
+  "Piss-Spot",
+  "Bildung",
+  "Einkaufen",
+  "Sport",
+  "Event",
 ]);
 
 function normalizeCategories(input: unknown): string[] {
