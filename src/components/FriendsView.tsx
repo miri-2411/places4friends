@@ -41,7 +41,8 @@ interface FriendsViewProps {
 export default function FriendsView({ currentUser }: FriendsViewProps) {
   const supabase = createClient();
 
-  const [activeTab, setActiveTab] = useState<"search" | "friends" | "requests">("search");
+  const [activeTab, setActiveTab] = useState<"friends" | "requests">("friends");
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -242,22 +243,24 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
   return (
     <div className="flex flex-col min-h-screen bg-slate-50/50 pb-24 font-sans">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-center border-b border-slate-100 bg-white px-4">
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-slate-100 bg-white px-4">
+        <div className="w-16" /> {/* Left Spacer to center title */}
         <h1 className="text-sm font-bold text-slate-900">Freunde & Anfragen</h1>
+        {activeTab === "friends" ? (
+          <button
+            onClick={() => setIsSearchModalOpen(true)}
+            className="flex items-center gap-1 rounded-lg bg-brand-green-50 px-2 py-1 text-[11px] font-bold text-brand-green-700 hover:bg-brand-green-100 active:scale-95 transition-all cursor-pointer"
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            <span>Hinzufügen</span>
+          </button>
+        ) : (
+          <div className="w-16" />
+        )}
       </header>
 
       {/* Tabs */}
       <div className="flex border-b border-slate-100 bg-white px-4 py-2 sticky top-14 z-10">
-        <button
-          onClick={() => setActiveTab("search")}
-          className={`flex-1 py-2 text-xs font-bold text-center border-b-2 transition-all ${
-            activeTab === "search"
-              ? "border-brand-green-700 text-brand-green-700 font-extrabold"
-              : "border-transparent text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          Hinzufügen
-        </button>
         <button
           onClick={() => setActiveTab("friends")}
           className={`flex-1 py-2 text-xs font-bold text-center border-b-2 transition-all flex items-center justify-center gap-1.5 ${
@@ -266,7 +269,7 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
               : "border-transparent text-slate-400 hover:text-slate-600"
           }`}
         >
-          Meine Freunde
+          Freunde
           {friendsList.length > 0 && (
             <span className="inline-flex items-center justify-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
               {friendsList.length}
@@ -289,7 +292,6 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
           )}
         </button>
       </div>
-
       <div className="flex-1 px-4 pt-5 page-transition">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
@@ -298,124 +300,19 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
           </div>
         ) : (
           <>
-            {/* SEARCH TAB */}
-            {activeTab === "search" && (
-              <div className="space-y-5">
-                <form onSubmit={handleSearch} className="flex gap-2">
-                  <div className="relative flex flex-1 items-center rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-sm focus-within:border-brand-green-500 focus-within:ring-2 focus-within:ring-brand-green-100 transition-all">
-                    <Search className="h-4.5 w-4.5 text-slate-400 mr-2.5" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSearchQuery(val);
-                        if (val.trim() === "") {
-                          setSearchResults([]);
-                        }
-                      }}
-                      placeholder="Username oder Name suchen..."
-                      className="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 outline-none"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="rounded-xl bg-brand-green-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-brand-green-800 active:scale-[0.97] transition-all cursor-pointer"
-                  >
-                    Suchen
-                  </button>
-                </form>
-
-                <div className="space-y-3">
-                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Suchergebnisse
-                  </h3>
-
-                  {isSearching ? (
-                    <div className="flex justify-center py-10">
-                      <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
-                    </div>
-                  ) : searchResults.length > 0 ? (
-                    <div className="divide-y divide-slate-100 rounded-2xl border border-slate-100 bg-white p-2 shadow-sm">
-                      {searchResults.map((profile) => {
-                        const rel = getRelationship(profile.id);
-                        const isSubmitting = !!submittingIds[profile.id];
-
-                        return (
-                          <div key={profile.id} className="flex items-center justify-between p-3 first:pt-2 last:pb-2">
-                            <div className="flex items-center gap-3">
-                              {/* Avatar */}
-                              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-brand-green-700 to-brand-green-500 text-white font-bold text-xs shadow-sm">
-                                {getInitials(profile.full_name, profile.username)}
-                              </div>
-                              <div>
-                                <h4 className="text-xs font-bold text-slate-900">
-                                  {profile.full_name ?? "User"}
-                                </h4>
-                                <p className="text-[10px] text-slate-400 mt-0.5">
-                                  {profile.username ? `@${profile.username}` : ""}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Relationship actions */}
-                            <div className="flex items-center">
-                              {isSubmitting ? (
-                                <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
-                              ) : !rel ? (
-                                <button
-                                  onClick={() => sendRequest(profile.id)}
-                                  className="flex items-center justify-center gap-1 rounded-lg bg-brand-green-50 px-2.5 py-1.5 text-[11px] font-bold text-brand-green-700 hover:bg-brand-green-100 transition-all cursor-pointer"
-                                >
-                                  <UserPlus className="h-3.5 w-3.5" />
-                                  <span>Hinzufügen</span>
-                                </button>
-                              ) : rel.status === "accepted" ? (
-                                <span className="inline-flex items-center gap-1 rounded-md bg-brand-green-50 px-2 py-1 text-[10px] font-bold text-brand-green-700 ring-1 ring-brand-green-600/15">
-                                  <UserCheck className="h-3 w-3" />
-                                  Befreundet
-                                </span>
-                              ) : rel.isSender ? (
-                                <button
-                                  onClick={() => deleteFriendship(rel.id, profile.id)}
-                                  className="flex items-center justify-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all cursor-pointer"
-                                  title="Anfrage zurückziehen"
-                                >
-                                  <Clock className="h-3.5 w-3.5" />
-                                  <span>Ausstehend</span>
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => acceptRequest(rel.id, profile.id)}
-                                  className="flex items-center justify-center gap-1 rounded-lg bg-brand-green-700 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-brand-green-800 transition-all cursor-pointer"
-                                >
-                                  <UserCheck className="h-3.5 w-3.5" />
-                                  <span>Annehmen</span>
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : searchQuery.trim() !== "" ? (
-                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center">
-                      <User className="h-8 w-8 text-slate-350 mx-auto" />
-                      <p className="text-xs text-slate-450 mt-2 font-medium">Keine Profile gefunden</p>
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center">
-                      <Search className="h-8 w-8 text-slate-300 mx-auto" />
-                      <p className="text-xs text-slate-400 mt-2 font-medium">Finde deine Freunde über ihren Namen oder Username</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* MY FRIENDS TAB */}
             {activeTab === "friends" && (
               <div className="space-y-4">
+                {friendsList.length > 0 && (
+                  <button
+                    onClick={() => setIsSearchModalOpen(true)}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-green-700 hover:bg-brand-green-800 text-white font-bold py-3.5 px-4 shadow-md hover:shadow-lg active:scale-[0.98] transition-all cursor-pointer text-xs"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    <span>Freunde suchen & hinzufügen</span>
+                  </button>
+                )}
+
                 <div className="flex items-center justify-between">
                   <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Befreundete User
@@ -429,20 +326,23 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
 
                       return (
                         <div key={friend.id} className="flex items-center justify-between p-3 first:pt-2 last:pb-2">
-                          <div className="flex items-center gap-3">
+                          <Link
+                            href={`/profile/${friend.id}`}
+                            className="flex items-center gap-3 hover:opacity-80 active:scale-[0.98] transition-all cursor-pointer group"
+                          >
                             {/* Avatar */}
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-brand-green-700 to-brand-green-500 text-white font-bold text-xs shadow-sm">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-brand-green-700 to-brand-green-500 text-white font-bold text-xs shadow-sm group-hover:scale-105 transition-transform duration-200">
                               {getInitials(friend.full_name, friend.username)}
                             </div>
                             <div>
-                              <h4 className="text-xs font-bold text-slate-900">
+                              <h4 className="text-xs font-bold text-slate-900 group-hover:text-brand-green-700 transition-colors">
                                 {friend.full_name ?? "User"}
                               </h4>
                               <p className="text-[10px] text-slate-400 mt-0.5">
                                 {friend.username ? `@${friend.username}` : ""}
                               </p>
                             </div>
-                          </div>
+                          </Link>
 
                           <div className="flex items-center">
                             {isSubmitting ? (
@@ -469,7 +369,7 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
                       Suche nach anderen Usern, um ihre Empfehlungen auf deiner Karte freizuschalten.
                     </p>
                     <button
-                      onClick={() => setActiveTab("search")}
+                      onClick={() => setIsSearchModalOpen(true)}
                       className="mt-4 inline-flex items-center gap-1 rounded-xl bg-brand-green-700 px-3.5 py-2 text-[11px] font-bold text-white shadow-sm hover:bg-brand-green-800 transition-all cursor-pointer"
                     >
                       <UserPlus className="h-3.5 w-3.5" />
@@ -551,6 +451,142 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
           </>
         )}
       </div>
+
+      {/* Search Modal */}
+      {isSearchModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm transition-all duration-300">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl transition-all duration-350 flex flex-col max-h-[80vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 bg-white">
+              <h2 className="text-sm font-bold text-slate-900">Freunde suchen & hinzufügen</h2>
+              <button
+                onClick={() => {
+                  setIsSearchModalOpen(false);
+                  setSearchQuery("");
+                  setSearchResults([]);
+                }}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-600 active:scale-95 transition-all cursor-pointer"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <form onSubmit={handleSearch} className="flex gap-2">
+                <div className="relative flex flex-1 items-center rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-sm focus-within:border-brand-green-500 focus-within:ring-2 focus-within:ring-brand-green-100 transition-all">
+                  <Search className="h-4.5 w-4.5 text-slate-400 mr-2.5" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSearchQuery(val);
+                      if (val.trim() === "") {
+                        setSearchResults([]);
+                      }
+                    }}
+                    placeholder="Username oder Name suchen..."
+                    className="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 outline-none"
+                    autoFocus
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-brand-green-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-brand-green-800 active:scale-[0.97] transition-all cursor-pointer"
+                >
+                  Suchen
+                </button>
+              </form>
+
+              <div className="space-y-3">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Suchergebnisse
+                </h3>
+
+                {isSearching ? (
+                  <div className="flex justify-center py-10">
+                    <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  <div className="divide-y divide-slate-100 rounded-2xl border border-slate-100 bg-white p-2 shadow-sm">
+                    {searchResults.map((profile) => {
+                      const rel = getRelationship(profile.id);
+                      const isSubmitting = !!submittingIds[profile.id];
+
+                      return (
+                        <div key={profile.id} className="flex items-center justify-between p-3 first:pt-2 last:pb-2">
+                          <div className="flex items-center gap-3">
+                            {/* Avatar */}
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-brand-green-700 to-brand-green-500 text-white font-bold text-xs shadow-sm">
+                              {getInitials(profile.full_name, profile.username)}
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-900">
+                                {profile.full_name ?? "User"}
+                              </h4>
+                              <p className="text-[10px] text-slate-400 mt-0.5">
+                                {profile.username ? `@${profile.username}` : ""}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Relationship actions */}
+                          <div className="flex items-center">
+                            {isSubmitting ? (
+                              <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                            ) : !rel ? (
+                              <button
+                                onClick={() => sendRequest(profile.id)}
+                                className="flex items-center justify-center gap-1 rounded-lg bg-brand-green-50 px-2.5 py-1.5 text-[11px] font-bold text-brand-green-700 hover:bg-brand-green-100 transition-all cursor-pointer"
+                              >
+                                <UserPlus className="h-3.5 w-3.5" />
+                                <span>Hinzufügen</span>
+                              </button>
+                            ) : rel.status === "accepted" ? (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-brand-green-50 px-2 py-1 text-[10px] font-bold text-brand-green-700 ring-1 ring-brand-green-600/15">
+                                <UserCheck className="h-3 w-3" />
+                                Befreundet
+                              </span>
+                            ) : rel.isSender ? (
+                              <button
+                                onClick={() => deleteFriendship(rel.id, profile.id)}
+                                className="flex items-center justify-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all cursor-pointer"
+                                title="Anfrage zurückziehen"
+                              >
+                                <Clock className="h-3.5 w-3.5" />
+                                <span>Ausstehend</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => acceptRequest(rel.id, profile.id)}
+                                className="flex items-center justify-center gap-1 rounded-lg bg-brand-green-700 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-brand-green-800 transition-all cursor-pointer"
+                              >
+                                <UserCheck className="h-3.5 w-3.5" />
+                                <span>Annehmen</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : searchQuery.trim() !== "" ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center">
+                    <User className="h-8 w-8 text-slate-350 mx-auto" />
+                    <p className="text-xs text-slate-450 mt-2 font-medium">Keine Profile gefunden</p>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center">
+                    <Search className="h-8 w-8 text-slate-300 mx-auto" />
+                    <p className="text-xs text-slate-400 mt-2 font-medium">Finde deine Freunde über ihren Namen oder Username</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
