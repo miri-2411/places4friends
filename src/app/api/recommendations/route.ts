@@ -22,7 +22,7 @@ const ALLOWED_CATEGORIES = new Set([
   "Kino",
   "Park",
   "Natur",
-  "Sehenswuerdigkeit",
+  "Sehenswürdigkeit",
 ]);
 
 function normalizeCategories(input: unknown): string[] {
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   try {
     payload = await request.json();
   } catch {
-    return NextResponse.json({ error: "Ungueltige Anfrage." }, { status: 400 });
+    return NextResponse.json({ error: "Ungültige Anfrage." }, { status: 400 });
   }
 
   if (!payload.placeName?.trim()) {

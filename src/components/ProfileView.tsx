@@ -69,7 +69,7 @@ const CATEGORY_OPTIONS = [
   "Kino",
   "Park",
   "Natur",
-  "Sehenswuerdigkeit",
+  "Sehenswürdigkeit",
 ];
 
 export default function ProfileView({ 
@@ -267,7 +267,7 @@ export default function ProfileView({
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      setAvatarError("Bitte waehle eine Bilddatei.");
+      setAvatarError("Bitte wähle eine Bilddatei.");
       return;
     }
 
@@ -522,7 +522,7 @@ export default function ProfileView({
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data?.error ?? "Loeschen fehlgeschlagen.");
+        throw new Error(data?.error ?? "Löschen fehlgeschlagen.");
       }
       setItems((prev) => prev.filter((item) => item.id !== placeId));
       if (editingId === placeId) {
@@ -531,7 +531,7 @@ export default function ProfileView({
       setDeleteConfirmId(null);
     } catch (error) {
       setActionError(
-        error instanceof Error ? error.message : "Loeschen fehlgeschlagen."
+        error instanceof Error ? error.message : "Löschen fehlgeschlagen."
       );
     } finally {
       setDeletingId(null);
@@ -660,7 +660,7 @@ export default function ProfileView({
   };
 
   const handleDeleteComment = async (placeId: string, commentId: string) => {
-    if (!globalThis.confirm("Kommentar wirklich loeschen?")) return;
+    if (!globalThis.confirm("Kommentar wirklich löschen?")) return;
 
     setCommentDeletingId(commentId);
     setCommentErrors((prev) => ({ ...prev, [placeId]: null }));
@@ -671,7 +671,7 @@ export default function ProfileView({
       .eq("id", commentId);
 
     if (error) {
-      setCommentErrors((prev) => ({ ...prev, [placeId]: "Kommentar konnte nicht geloescht werden." }));
+      setCommentErrors((prev) => ({ ...prev, [placeId]: "Kommentar konnte nicht gelöscht werden." }));
     } else {
       await reloadCommentsForPlace(placeId);
     }
@@ -773,8 +773,8 @@ export default function ProfileView({
               onClick={triggerAvatarPicker}
               disabled={isUploadingAvatar}
               className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-white bg-slate-900 text-white shadow-md transition-all hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
-              aria-label="Profilbild aendern"
-              title="Profilbild aendern"
+              aria-label="Profilbild ändern"
+              title="Profilbild ändern"
             >
               {isUploadingAvatar ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1050,7 +1050,7 @@ export default function ProfileView({
                                             disabled={commentDeletingId === comment.id}
                                             className="text-[9px] font-semibold text-red-500 hover:text-red-600 disabled:opacity-60 cursor-pointer"
                                           >
-                                            Loeschen
+                                            Löschen
                                           </button>
                                         </div>
                                       )}

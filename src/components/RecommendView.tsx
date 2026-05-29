@@ -44,7 +44,7 @@ const CATEGORIES = [
   "Kino",
   "Park",
   "Natur",
-  "Sehenswuerdigkeit",
+  "Sehenswürdigkeit",
 ];
 
 type FormStep = "map" | "form";
@@ -361,7 +361,7 @@ export default function RecommendView() {
           </div>
           <h3 className="mt-5 text-lg font-bold text-brand-green-900">Erfolgreich empfohlen!</h3>
           <p className="mt-2 text-sm text-slate-500 max-w-xs text-center">
-            Dein Ort wurde in deine Aktivitaet aufgenommen.
+            Dein Ort wurde in deine Aktivität aufgenommen.
           </p>
         </div>
       )}
@@ -696,7 +696,7 @@ export default function RecommendView() {
                   <label className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/50 hover:bg-slate-50 transition-all hover:border-brand-green-500 group">
                     <ImageIcon className="h-5 w-5 text-slate-400 group-hover:text-brand-green-600 transition-colors" />
                     <span className="mt-1 text-[10px] font-semibold text-slate-400 group-hover:text-brand-green-600 transition-colors">
-                      Bild hinzufuegen
+                      Bild hinzufügen
                     </span>
                     <input
                       type="file"

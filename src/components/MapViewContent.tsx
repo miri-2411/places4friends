@@ -98,7 +98,7 @@ export default function MapViewContent() {
   });
 
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const [recommendationFilter, setRecommendationFilter] = useState<"all" | "must-see" | "normal">("all");
+  const [recommendationFilter, setRecommendationFilter] = useState<"all" | "must-see">("all");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
@@ -351,8 +351,6 @@ export default function MapViewContent() {
     }
     if (recommendationFilter === "must-see") {
       next = next.filter((place) => place.isMustSee);
-    } else if (recommendationFilter === "normal") {
-      next = next.filter((place) => !place.isMustSee);
     }
     if (selectedCategories.length > 0) {
       next = next.filter((place) =>
@@ -743,7 +741,7 @@ export default function MapViewContent() {
 
   const handleDeleteComment = async (commentId: string) => {
     if (!selectedPlace) return;
-    if (!globalThis.confirm("Kommentar wirklich loeschen?")) return;
+    if (!globalThis.confirm("Kommentar wirklich löschen?")) return;
 
     setCommentDeletingId(commentId);
     setCommentError(null);
@@ -754,7 +752,7 @@ export default function MapViewContent() {
       .eq("id", commentId);
 
     if (error) {
-      setCommentError("Kommentar konnte nicht geloescht werden.");
+      setCommentError("Kommentar konnte nicht gelöscht werden.");
     } else {
       await fetchComments(selectedPlace.id);
     }
@@ -825,7 +823,7 @@ export default function MapViewContent() {
             )}
 
             {isFilterMenuOpen && (
-              <div className="absolute right-3 top-full mt-2 w-64 rounded-2xl border border-slate-100 bg-white/95 backdrop-blur-md shadow-xl z-50 p-2">
+              <div className="absolute right-3 top-full mt-2 w-64 rounded-2xl border border-slate-100 bg-white shadow-xl z-50 p-2">
                 <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Empfehlungen
                 </div>
@@ -855,19 +853,6 @@ export default function MapViewContent() {
                 >
                   <Sparkles className="h-3.5 w-3.5" />
                   Must See
-                </button>
-                <button
-                  onClick={() => {
-                    setRecommendationFilter("normal");
-                  }}
-                  className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
-                    recommendationFilter === "normal"
-                      ? "bg-brand-green-700 text-white"
-                      : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <MapPin className="h-3.5 w-3.5" />
-                  Empfehlung
                 </button>
 
                 <div className="mt-2 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -908,7 +893,7 @@ export default function MapViewContent() {
                     onClick={() => setSelectedCategories([])}
                     className="mt-1 w-full rounded-xl px-3 py-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-50"
                   >
-                    Kategorien zuruecksetzen
+                    Kategorien zurücksetzen
                   </button>
                 )}
               </div>
@@ -965,7 +950,7 @@ export default function MapViewContent() {
               className="flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-100 bg-white/95 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95"
             >
               <UserPlus className="h-3.5 w-3.5" />
-              <span>Freunde hinzufuegen</span>
+              <span>Freunde hinzufügen</span>
             </Link>
           </div>
         )
@@ -1309,7 +1294,7 @@ export default function MapViewContent() {
                                     disabled={commentDeletingId === comment.id}
                                     className="text-[9px] font-semibold text-red-500 hover:text-red-600 disabled:opacity-60"
                                   >
-                                    Loeschen
+                                    Löschen
                                   </button>
                                 </div>
                               )}

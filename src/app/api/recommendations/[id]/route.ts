@@ -10,7 +10,7 @@ const ALLOWED_CATEGORIES = new Set([
   "Kino",
   "Park",
   "Natur",
-  "Sehenswuerdigkeit",
+  "Sehenswürdigkeit",
 ]);
 
 function normalizeCategories(input: unknown): string[] {
@@ -28,7 +28,7 @@ export async function PATCH(
 ) {
   const { id } = await params;
   if (!id) {
-    return NextResponse.json({ error: "Ungueltige Anfrage." }, { status: 400 });
+    return NextResponse.json({ error: "Ungültige Anfrage." }, { status: 400 });
   }
 
   const supabase = await createClient();
@@ -50,7 +50,7 @@ export async function PATCH(
   try {
     payload = await request.json();
   } catch {
-    return NextResponse.json({ error: "Ungueltige Anfrage." }, { status: 400 });
+    return NextResponse.json({ error: "Ungültige Anfrage." }, { status: 400 });
   }
 
   const placeName = typeof payload.placeName === "string" ? payload.placeName.trim() : "";
@@ -59,7 +59,7 @@ export async function PATCH(
   }
 
   if (typeof payload.isSuperLike !== "boolean") {
-    return NextResponse.json({ error: "Ungueltige Markierung." }, { status: 400 });
+    return NextResponse.json({ error: "Ungültige Markierung." }, { status: 400 });
   }
 
   const description = typeof payload.description === "string" ? payload.description.trim() : null;
@@ -104,7 +104,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
   if (!id) {
-    return NextResponse.json({ error: "Ungueltige Anfrage." }, { status: 400 });
+    return NextResponse.json({ error: "Ungültige Anfrage." }, { status: 400 });
   }
 
   const supabase = await createClient();

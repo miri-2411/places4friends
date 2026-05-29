@@ -20,7 +20,7 @@ export default function RegisterForm() {
     const confirmPassword = formData.get("confirmPassword") as string;
 
     if (password !== confirmPassword) {
-      setError("Passwoerter stimmen nicht ueberein.");
+      setError("Passwörter stimmen nicht überein.");
       setLoading(false);
       return;
     }
@@ -70,7 +70,7 @@ export default function RegisterForm() {
           htmlFor="fullName"
           className="text-xs font-semibold uppercase tracking-wider text-slate-400"
         >
-          Vollstaendiger Name
+          Vollständiger Name
         </label>
         <div className="relative flex items-center rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm focus-within:border-brand-green-500 focus-within:ring-2 focus-within:ring-brand-green-100 transition-all">
           <User className="h-4.5 w-4.5 text-slate-400 mr-2.5" />

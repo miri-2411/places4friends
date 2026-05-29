@@ -31,6 +31,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ### Code Quality
 - Write clean TypeScript with strict typing (avoid `any` where possible).
 
+### German Umlauts (Ä, Ö, Ü)
+- Always use correct German umlauts (ä, ö, ü, Ä, Ö, Ü) in user-facing German texts. Do NOT substitute them with "ae", "oe", "ue".
+
 ### Browser Usage
 - Do NOT open the browser unless explicitly requested in the user prompt or for testing very complex tasks.
 

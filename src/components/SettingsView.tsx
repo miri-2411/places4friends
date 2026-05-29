@@ -92,7 +92,7 @@ export default function SettingsView({ user }: { user: UserProfile }) {
     setStatus("success");
     setMessage(
       shouldUpdateEmail
-        ? "Bitte bestaetige die neue E-Mail-Adresse in deinem Postfach."
+        ? "Bitte bestätige die neue E-Mail-Adresse in deinem Postfach."
         : "Gespeichert."
     );
   };
@@ -104,7 +104,7 @@ export default function SettingsView({ user }: { user: UserProfile }) {
           <Link
             href="/profile"
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 active:scale-95 transition-all"
-            aria-label="Zurueck"
+            aria-label="Zurück"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
