@@ -915,7 +915,6 @@ export default function ProfileView({
                               title="Bearbeiten"
                             >
                               <Pencil className="h-3 w-3" />
-                              <span className="hidden sm:inline">Bearbeiten</span>
                             </button>
                             <button
                               type="button"
@@ -925,7 +924,6 @@ export default function ProfileView({
                               title="Löschen"
                             >
                               <Trash2 className="h-3 w-3" />
-                              <span className="hidden sm:inline">Loeschen</span>
                             </button>
                           </div>
                         )
