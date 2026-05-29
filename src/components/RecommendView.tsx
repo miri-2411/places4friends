@@ -56,6 +56,11 @@ export default function RecommendView() {
     { type: "success" | "error"; message: string } | null
   >(null);
 
+  const savedMapStyle =
+    typeof window !== "undefined"
+      ? (localStorage.getItem("mapStyle") ?? "mapbox://styles/mapbox/streets-v12")
+      : "mapbox://styles/mapbox/streets-v12";
+
   const canSave = useMemo(() => {
     if (selectedPlace) return true;
     return customPlaceName.trim().length > 0;
@@ -354,7 +359,7 @@ export default function RecommendView() {
                           setSelectedPlace(null);
                         }}
                         style={{ width: "100%", height: "100%" }}
-                        mapStyle="mapbox://styles/mapbox/light-v11"
+                        mapStyle={savedMapStyle}
                         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
                       >
                         {customCoords && (
@@ -408,7 +413,7 @@ export default function RecommendView() {
                   })}
                 </div>
                 <p className="mt-2 text-[11px] text-slate-400">
-                  Mehrfachauswahl moeglich.
+                  Mehrfachauswahl möglich.
                 </p>
               </div>
             </div>

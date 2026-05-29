@@ -88,7 +88,12 @@ export default function MapViewContent() {
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
-  const [currentStyle, setCurrentStyle] = useState("mapbox://styles/mapbox/streets-v12");
+  const [currentStyle, setCurrentStyle] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mapStyle") ?? "mapbox://styles/mapbox/streets-v12";
+    }
+    return "mapbox://styles/mapbox/streets-v12";
+  });
   const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
   const [comments, setComments] = useState<ActivityComment[]>([]);
   const [commentInput, setCommentInput] = useState("");
@@ -734,7 +739,7 @@ export default function MapViewContent() {
           )}
 
           {/* Map Style Selector - inside Map so absolute positioning works correctly */}
-          <div className="absolute bottom-6 right-4 z-10 flex flex-col items-end gap-2">
+          <div className="absolute bottom-24 right-4 z-10 flex flex-col items-end gap-2">
             {isStyleMenuOpen && (
               <div className="flex flex-col gap-1.5 p-1.5 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-100/50 shadow-xl">
                 {MAP_STYLES.map((style) => (
@@ -742,6 +747,7 @@ export default function MapViewContent() {
                     key={style.id}
                     onClick={() => {
                       setCurrentStyle(style.url);
+                      localStorage.setItem("mapStyle", style.url);
                       setIsStyleMenuOpen(false);
                     }}
                     className={`px-3 py-1.5 text-xs font-semibold rounded-xl text-left transition-all duration-200 cursor-pointer min-w-[120px] ${
