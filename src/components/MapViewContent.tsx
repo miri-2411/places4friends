@@ -271,7 +271,7 @@ export default function MapViewContent() {
           .eq("user_id", authUser.id);
         setWishlistIds((wishlistEntries || []).map((w: any) => w.activity_id));
 
-        // Dynamically center map on first recommendation if exists, unless overridden by search params
+        // Dynamically center map if overridden by search params, otherwise keep default (Regensburg)
         const urlParams = new URLSearchParams(window.location.search);
         const latParam = urlParams.get("lat");
         const lngParam = urlParams.get("lng");
@@ -287,12 +287,6 @@ export default function MapViewContent() {
               zoom: 15,
             });
           }
-        } else if (loadedPlaces.length > 0) {
-          setViewState({
-            latitude: loadedPlaces[0].latitude,
-            longitude: loadedPlaces[0].longitude,
-            zoom: 12,
-          });
         }
 
         if (placeIdParam) {
