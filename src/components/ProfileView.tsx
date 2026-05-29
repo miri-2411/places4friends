@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Settings, Sparkles, LogOut, MapPin, Pencil, Trash2, X, Check, Bookmark, Loader2, Menu, Shield, FileText, MoreVertical, MessageCircle, Share2 } from "lucide-react";
+import { Settings, Sparkles, LogOut, MapPin, Pencil, Trash2, X, Check, Bookmark, Loader2, Menu, Shield, FileText, MoreVertical, MessageCircle, Share2, Plus } from "lucide-react";
 import { signout } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/client";
 import ActivityCard from "./ActivityCard";
@@ -136,6 +136,8 @@ export default function ProfileView({
   const [editReview, setEditReview] = useState("");
   const [editIsMustSee, setEditIsMustSee] = useState(false);
   const [editCategories, setEditCategories] = useState<string[]>([]);
+  const [editImageUrls, setEditImageUrls] = useState<string[]>([]);
+  const [editNewFiles, setEditNewFiles] = useState<{ id: string; file: File; previewUrl: string }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -514,6 +516,8 @@ export default function ProfileView({
     setEditReview(place.review ?? "");
     setEditIsMustSee(Boolean(place.isMustSee));
     setEditCategories(place.categories ?? []);
+    setEditImageUrls(place.imageUrls ?? []);
+    setEditNewFiles([]);
     setActionError(null);
   };
 
@@ -523,7 +527,58 @@ export default function ProfileView({
     setEditReview("");
     setEditIsMustSee(false);
     setEditCategories([]);
+    editNewFiles.forEach((f) => URL.revokeObjectURL(f.previewUrl));
+    setEditImageUrls([]);
+    setEditNewFiles([]);
     setActionError(null);
+  };
+
+  const handleEditAddImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newFilesArray = Array.from(files);
+    let validFiles = newFilesArray.filter((file) => {
+      if (!file.type.startsWith("image/")) {
+        setActionError("Bitte nur Bilder hochladen.");
+        return false;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setActionError("Bilder dürfen maximal 5 MB groß sein.");
+        return false;
+      }
+      return true;
+    });
+
+    const currentCount = editImageUrls.length;
+    const maxAllowed = 3;
+    const remainingSlots = maxAllowed - currentCount;
+
+    if (validFiles.length > remainingSlots) {
+      setActionError(`Du kannst maximal ${maxAllowed} Bilder hochladen.`);
+      validFiles = validFiles.slice(0, remainingSlots);
+    }
+
+    if (validFiles.length === 0) return;
+
+    const newEntries = validFiles.map((file) => {
+      const id = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      const previewUrl = URL.createObjectURL(file);
+      return { id, file, previewUrl };
+    });
+
+    setEditNewFiles((prev) => [...prev, ...newEntries]);
+    setEditImageUrls((prev) => [...prev, ...newEntries.map((e) => e.previewUrl)]);
+  };
+
+  const handleEditRemoveImage = (urlToRemove: string) => {
+    setEditImageUrls((prev) => prev.filter((url) => url !== urlToRemove));
+
+    const matchingNewFile = editNewFiles.find((f) => f.previewUrl === urlToRemove);
+    if (matchingNewFile) {
+      URL.revokeObjectURL(matchingNewFile.previewUrl);
+      setEditNewFiles((prev) => prev.filter((f) => f.previewUrl !== urlToRemove));
+    }
   };
 
   const toggleEditCategory = (category: string) => {
@@ -540,9 +595,54 @@ export default function ProfileView({
       setActionError("Name fehlt.");
       return;
     }
+    const currentPlace = items.find((item) => item.id === placeId);
+    if (!currentPlace) {
+      setActionError("Empfehlung nicht gefunden.");
+      return;
+    }
+
     setIsSaving(true);
     setActionError(null);
     try {
+      // 1. Upload new files
+      const uploadedUrls: string[] = [];
+      if (editNewFiles.length > 0) {
+        for (const entry of editNewFiles) {
+          const fileExt = entry.file.name.split(".").pop();
+          const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+          const { error: uploadError } = await supabase.storage
+            .from("activity-images")
+            .upload(fileName, entry.file);
+
+          if (uploadError) {
+            throw new Error(`Fehler beim Hochladen eines Bildes: ${uploadError.message}`);
+          }
+
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from("activity-images").getPublicUrl(fileName);
+          uploadedUrls.push(publicUrl);
+        }
+      }
+
+      // 2. Combine existing non-blob URLs and newly uploaded URLs
+      const existingUrls = editImageUrls.filter((url) => !url.startsWith("blob:"));
+      const finalImageUrls = [...existingUrls, ...uploadedUrls];
+
+      // 3. Find and delete removed images from storage
+      const originalUrls = currentPlace.imageUrls || [];
+      const deletedUrls = originalUrls.filter((url) => !finalImageUrls.includes(url));
+      if (deletedUrls.length > 0) {
+        const fileNames = deletedUrls.map((url) => {
+          const parts = url.split("/");
+          return parts[parts.length - 1];
+        });
+        supabase.storage
+          .from("activity-images")
+          .remove(fileNames)
+          .catch((err) => console.error("Failed to delete removed images from storage", err));
+      }
+
       const response = await fetch(`/api/recommendations/${placeId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -551,12 +651,15 @@ export default function ProfileView({
           description: editReview.trim() || null,
           isSuperLike: editIsMustSee,
           categories: editCategories,
+          imageUrls: finalImageUrls,
         }),
       });
+
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data?.error ?? "Speichern fehlgeschlagen.");
       }
+
       setItems((prev) =>
         prev.map((item) =>
           item.id === placeId
@@ -566,10 +669,13 @@ export default function ProfileView({
                 review: editReview.trim(),
                 isMustSee: editIsMustSee,
                 categories: editCategories,
+                imageUrls: finalImageUrls,
               }
             : item
         )
       );
+
+      editNewFiles.forEach((f) => URL.revokeObjectURL(f.previewUrl));
       cancelEdit();
     } catch (error) {
       setActionError(
@@ -990,6 +1096,40 @@ export default function ProfileView({
                             rows={3}
                             className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-brand-green-500"
                           />
+
+                          {/* Images Edit Section */}
+                          <div className="mt-3 space-y-2">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Bilder bearbeiten</label>
+                            <div className="flex flex-wrap gap-2">
+                              {editImageUrls.map((url, idx) => (
+                                <div key={idx} className="relative h-16 w-16 rounded-xl border border-slate-200 overflow-hidden bg-slate-50 flex-shrink-0 group">
+                                  <img src={url} alt="Empfehlungsbild" className="h-full w-full object-cover" />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditRemoveImage(url)}
+                                    className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900/80 text-white hover:bg-slate-900 transition-all cursor-pointer shadow-md"
+                                    title="Bild löschen"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                              {editImageUrls.length < 3 && (
+                                <label className="flex h-16 w-16 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-350 bg-slate-50/50 hover:bg-slate-50 transition-all hover:border-brand-green-500 group">
+                                  <Plus className="h-4 w-4 text-slate-450 group-hover:text-brand-green-600 transition-colors" />
+                                  <span className="text-[8px] font-semibold text-slate-400 group-hover:text-brand-green-600 transition-colors mt-0.5">Hinzufügen</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    className="hidden"
+                                    onChange={handleEditAddImage}
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          </div>
+
                           <div className="flex items-center justify-end gap-2 pt-3 mt-3 border-t border-slate-100">
                             <button
                               type="button"

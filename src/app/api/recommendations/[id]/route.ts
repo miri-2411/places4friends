@@ -52,6 +52,7 @@ export async function PATCH(
     description?: unknown;
     isSuperLike?: unknown;
     categories?: unknown;
+    imageUrls?: unknown;
   };
 
   try {
@@ -71,15 +72,24 @@ export async function PATCH(
 
   const description = typeof payload.description === "string" ? payload.description.trim() : null;
   const categories = normalizeCategories(payload.categories);
+  const imageUrls = Array.isArray(payload.imageUrls)
+    ? payload.imageUrls.filter((url): url is string => typeof url === "string")
+    : null;
+
+  const updateFields: any = {
+    place_name: placeName,
+    description: description || null,
+    is_superlike: payload.isSuperLike,
+    categories,
+  };
+
+  if (imageUrls !== null) {
+    updateFields.image_urls = imageUrls;
+  }
 
   const { data, error } = await supabase
     .from("activities")
-    .update({
-      place_name: placeName,
-      description: description || null,
-      is_superlike: payload.isSuperLike,
-      categories,
-    })
+    .update(updateFields)
     .eq("id", id)
     .eq("user_id", user.id)
     .select("id")
