@@ -14,6 +14,8 @@ import {
   ChevronDown,
   ChevronUp,
   PenLine,
+  Layers,
+  Locate,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -45,6 +47,14 @@ const CATEGORIES = [
   "Park",
   "Natur",
   "Sehenswürdigkeit",
+];
+
+const MAP_STYLES = [
+  { id: "streets", name: "Standard", url: "mapbox://styles/mapbox/streets-v12" },
+  { id: "light", name: "Hell (Schwarz-Weiß)", url: "mapbox://styles/mapbox/light-v11" },
+  { id: "dark", name: "Dunkel", url: "mapbox://styles/mapbox/dark-v11" },
+  { id: "satellite", name: "Satellit", url: "mapbox://styles/mapbox/satellite-streets-v12" },
+  { id: "outdoors", name: "Outdoor", url: "mapbox://styles/mapbox/outdoors-v12" },
 ];
 
 type FormStep = "map" | "form";
@@ -86,10 +96,16 @@ export default function RecommendView() {
     { type: "success" | "error"; message: string } | null
   >(null);
 
-  const savedMapStyle =
-    typeof window !== "undefined"
-      ? (localStorage.getItem("mapStyle") ?? "mapbox://styles/mapbox/streets-v12")
-      : "mapbox://styles/mapbox/streets-v12";
+  // Map style and location state
+  const [currentStyle, setCurrentStyle] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mapStyle") ?? "mapbox://styles/mapbox/streets-v12";
+    }
+    return "mapbox://styles/mapbox/streets-v12";
+  });
+  const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
 
   const canSave = useMemo(() => placeName.trim().length > 0, [placeName]);
 
@@ -346,6 +362,53 @@ export default function RecommendView() {
     }
   };
 
+  const handleLocateUser = () => {
+    if (!navigator.geolocation) {
+      alert("Geolokalisierung wird von deinem Browser nicht unterstützt.");
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserLocation({ latitude, longitude });
+        setIsLocating(false);
+
+        mapRef.current?.flyTo({
+          center: [longitude, latitude],
+          zoom: 15,
+          duration: 1500,
+        });
+
+        setViewState((prev) => ({
+          ...prev,
+          latitude,
+          longitude,
+          zoom: 15,
+        }));
+      },
+      (error) => {
+        console.error("Error getting location:", error);
+        setIsLocating(false);
+        let message = "Dein Standort konnte nicht ermittelt werden.";
+        if (error.code === error.PERMISSION_DENIED) {
+          message = "Standortzugriff wurde verweigert. Bitte erlaube den Standortzugriff in deinem Browser.";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          message = "Standortinformationen sind derzeit nicht verfügbar.";
+        } else if (error.code === error.TIMEOUT) {
+          message = "Die Anfrage zur Ermittlung des Standorts hat das Zeitlimit überschritten.";
+        }
+        alert(message);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  };
+
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   // ----------------------------------------------------------------
@@ -375,7 +438,7 @@ export default function RecommendView() {
             onMove={(evt) => setViewState(evt.viewState)}
             onClick={handleMapClick}
             style={{ width: "100%", height: "100%" }}
-            mapStyle={savedMapStyle}
+            mapStyle={currentStyle}
             mapboxAccessToken={mapboxToken}
             cursor={formStep === "map" ? "crosshair" : "grab"}
           >
@@ -386,6 +449,74 @@ export default function RecommendView() {
                 </div>
               </Marker>
             )}
+
+            {userLocation && (
+              <Marker
+                latitude={userLocation.latitude}
+                longitude={userLocation.longitude}
+                anchor="center"
+              >
+                <div className="relative flex h-5 w-5 items-center justify-center pointer-events-none">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-white shadow-md"></span>
+                </div>
+              </Marker>
+            )}
+
+            {/* Map Style & Location controls */}
+            <div className={`absolute right-4 z-10 flex flex-col items-end gap-2 transition-all duration-300 ${
+              formStep === "form"
+                ? "opacity-0 pointer-events-none invisible"
+                : "bottom-[calc(64px+8px+env(safe-area-inset-bottom))]"
+            }`}>
+              {isStyleMenuOpen && (
+                <div className="flex flex-col gap-1.5 p-1.5 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-100/50 shadow-xl">
+                  {MAP_STYLES.map((style) => (
+                    <button
+                      key={style.id}
+                      type="button"
+                      onClick={() => {
+                        setCurrentStyle(style.url);
+                        localStorage.setItem("mapStyle", style.url);
+                        setIsStyleMenuOpen(false);
+                      }}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-xl text-left transition-all duration-200 cursor-pointer min-w-[120px] ${
+                        currentStyle === style.url
+                          ? "bg-brand-green-800 text-white"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      {style.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setIsStyleMenuOpen(!isStyleMenuOpen)}
+                className={`flex h-10 w-10 items-center justify-center rounded-full border border-slate-100 bg-white/95 backdrop-blur-md text-slate-700 shadow-lg transition-all duration-200 cursor-pointer hover:bg-slate-50 active:scale-95 outline-none focus:outline-none ${
+                  isStyleMenuOpen ? "ring-2 ring-brand-green-700 text-brand-green-800" : ""
+                }`}
+                title="Kartenstil ändern"
+              >
+                <Layers className="h-5 w-5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLocateUser}
+                disabled={isLocating}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-100 bg-white/95 backdrop-blur-md text-slate-700 shadow-lg transition-all duration-200 cursor-pointer hover:bg-slate-50 active:scale-95 disabled:opacity-50 outline-none focus:outline-none"
+                title="Meinen Standort anzeigen"
+              >
+                {isLocating ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-brand-green-700" />
+                ) : (
+                  <Locate className="h-5 w-5" />
+                )}
+              </button>
+            </div>
           </Map>
         ) : (
           <div className="flex h-full items-center justify-center bg-slate-100 text-center text-sm text-slate-500 px-6">
