@@ -793,10 +793,10 @@ export default function MapViewContent() {
       {/* Floating Friends Filter Bar or Add Friends Button */}
       {!isLoading && (
         user && friends.length > 0 ? (
-          <div className="absolute left-4 right-4 z-10 flex gap-2 overflow-x-auto no-scrollbar py-1" style={{ top: "76px" }}>
+          <div className="absolute left-0 right-0 z-10 flex flex-nowrap gap-2 overflow-x-auto no-scrollbar px-4 py-1" style={{ top: "70px" }}>
             <button
               onClick={() => handleSelectUser(null)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95 ${
+              className={`flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95 ${
                 selectedUser === null
                   ? "bg-brand-green-800 border-brand-green-800 text-white"
                   : "bg-white/95 border-slate-100 text-slate-700 hover:bg-slate-50"
@@ -810,7 +810,7 @@ export default function MapViewContent() {
               <button
                 key={friend.id}
                 onClick={() => handleSelectUser(friend.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95 ${
+                className={`flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95 ${
                   selectedUser === friend.id
                     ? "bg-brand-green-800 border-brand-green-800 text-white"
                     : "bg-white/95 border-slate-100 text-slate-700 hover:bg-slate-50"
@@ -832,10 +832,10 @@ export default function MapViewContent() {
             ))}
           </div>
         ) : (
-          <div className="absolute left-4 z-10 flex gap-2 py-1" style={{ top: "76px" }}>
+          <div className="absolute left-0 right-0 z-10 flex flex-nowrap gap-2 overflow-x-auto no-scrollbar px-4 py-1" style={{ top: "70px" }}>
             <Link
               href="/profile/friends"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-100 bg-white/95 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95"
+              className="flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-100 bg-white/95 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95"
             >
               <UserPlus className="h-3.5 w-3.5" />
               <span>Freunde hinzufügen</span>
