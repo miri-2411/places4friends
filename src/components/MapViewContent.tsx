@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import Map, { Marker, Popup } from "react-map-gl/mapbox";
-import { Search, Users, MapPin, Sparkles, Layers, Loader2, Bookmark, UserPlus, MessageCircle, X, Locate } from "lucide-react";
+import { Search, Users, MapPin, Sparkles, Layers, Loader2, Bookmark, UserPlus, MessageCircle, X, Locate, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -97,7 +97,9 @@ export default function MapViewContent() {
     zoom: 12,
   });
 
-  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [recommendationFilter, setRecommendationFilter] = useState<"all" | "must-see" | "normal">("all");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
@@ -108,6 +110,7 @@ export default function MapViewContent() {
     return "mapbox://styles/mapbox/streets-v12";
   });
   const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [comments, setComments] = useState<ActivityComment[]>([]);
@@ -333,6 +336,40 @@ export default function MapViewContent() {
     }
   }, [searchParams, places]);
 
+  const categoryOptions = useMemo(() => {
+    const unique = new Set<string>();
+    places.forEach((place) => {
+      place.categories.forEach((category) => unique.add(category));
+    });
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+  }, [places]);
+
+  const filteredPlaces = useMemo(() => {
+    let next = places;
+    if (selectedUsers.length > 0) {
+      next = next.filter((place) => selectedUsers.includes(place.userId));
+    }
+    if (recommendationFilter === "must-see") {
+      next = next.filter((place) => place.isMustSee);
+    } else if (recommendationFilter === "normal") {
+      next = next.filter((place) => !place.isMustSee);
+    }
+    if (selectedCategories.length > 0) {
+      next = next.filter((place) =>
+        place.categories.some((category) => selectedCategories.includes(category))
+      );
+    }
+    return next;
+  }, [places, recommendationFilter, selectedCategories, selectedUsers]);
+
+  useEffect(() => {
+    if (!selectedPlace) return;
+    const isVisible = filteredPlaces.some((place) => place.id === selectedPlace.id);
+    if (!isVisible) {
+      setSelectedPlace(null);
+    }
+  }, [filteredPlaces, selectedPlace]);
+
   // Search effect to search places (both local recommendations and global geocoding API)
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -342,7 +379,7 @@ export default function MapViewContent() {
     }
 
     const queryLower = searchQuery.toLowerCase();
-    const localMatches = places
+    const localMatches = filteredPlaces
       .filter(
         (p) =>
           p.name.toLowerCase().includes(queryLower) ||
@@ -398,7 +435,7 @@ export default function MapViewContent() {
     }, 300);
 
     return () => clearTimeout(delayDebounce);
-  }, [searchQuery, places, viewState.latitude, viewState.longitude]);
+  }, [searchQuery, filteredPlaces, viewState.latitude, viewState.longitude]);
 
   // Click outside search bar to close suggestions
   useEffect(() => {
@@ -624,8 +661,10 @@ export default function MapViewContent() {
     setIsCommentsOpen(false);
   }, [selectedPlace?.id]);
 
-  const handleSelectUser = (userId: string | null) => {
-    setSelectedUser(userId);
+  const handleToggleUser = (userId: string) => {
+    setSelectedUsers((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
     setSelectedPlace(null);
   };
 
@@ -723,10 +762,6 @@ export default function MapViewContent() {
     setCommentDeletingId(null);
   };
 
-  const filteredPlaces = selectedUser
-    ? places.filter((place) => place.userId === selectedUser)
-    : places;
-
   if (!mapboxToken) {
     return (
       <div className="flex h-full w-full flex-1 flex-col items-center justify-center bg-slate-50 p-6 text-center">
@@ -770,6 +805,16 @@ export default function MapViewContent() {
               onKeyDown={handleKeyDown}
               className="w-full bg-transparent text-sm text-slate-800 focus:outline-none placeholder-slate-400 font-medium cursor-pointer"
             />
+            <button
+              onClick={() => setIsFilterMenuOpen((prev) => !prev)}
+              className={`ml-2 flex h-7 w-7 items-center justify-center rounded-full border border-slate-100 text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all flex-shrink-0 cursor-pointer ${
+                isFilterMenuOpen ? "ring-2 ring-brand-green-700/20 text-brand-green-800" : ""
+              }`}
+              title="Filter"
+              aria-label="Filter"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+            </button>
             {searchQuery && (
               <button
                 onClick={clearSearch}
@@ -778,7 +823,154 @@ export default function MapViewContent() {
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
+
+            {isFilterMenuOpen && (
+              <div className="absolute right-3 top-full mt-2 w-64 rounded-2xl border border-slate-100 bg-white/95 backdrop-blur-md shadow-xl z-50 p-2">
+                <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Empfehlungen
+                </div>
+                <button
+                  onClick={() => {
+                    setRecommendationFilter("all");
+                    setIsFilterMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
+                    recommendationFilter === "all"
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Alle Empfehlungen
+                </button>
+                <button
+                  onClick={() => {
+                    setRecommendationFilter("must-see");
+                    setIsFilterMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
+                    recommendationFilter === "must-see"
+                      ? "bg-amber-500 text-white"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Must See
+                </button>
+                <button
+                  onClick={() => {
+                    setRecommendationFilter("normal");
+                  }}
+                  className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
+                    recommendationFilter === "normal"
+                      ? "bg-brand-green-700 text-white"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <MapPin className="h-3.5 w-3.5" />
+                  Empfehlung
+                </button>
+
+                <div className="mt-2 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Kategorien
+                </div>
+                {categoryOptions.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 px-2 pb-1">
+                    {categoryOptions.map((category) => {
+                      const isActive = selectedCategories.includes(category);
+                      return (
+                        <button
+                          key={category}
+                          onClick={() => {
+                            setSelectedCategories((prev) =>
+                              prev.includes(category)
+                                ? prev.filter((item) => item !== category)
+                                : [...prev, category]
+                            );
+                          }}
+                          className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold transition-all ${
+                            isActive
+                              ? "border-brand-green-600 bg-brand-green-50 text-brand-green-800"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                          }`}
+                        >
+                          {category}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="px-3 pb-1 text-[11px] text-slate-500">
+                    Keine Kategorien vorhanden.
+                  </div>
+                )}
+                {selectedCategories.length > 0 && (
+                  <button
+                    onClick={() => setSelectedCategories([])}
+                    className="mt-1 w-full rounded-xl px-3 py-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-50"
+                  >
+                    Kategorien zuruecksetzen
+                  </button>
+                )}
+              </div>
+            )}
           </div>
+      {/* Floating Friends Filter Bar or Add Friends Button */}
+      {!isLoading && (
+        user && friends.length > 0 ? (
+          <div className="absolute left-0 right-0 z-10 flex flex-nowrap gap-2 overflow-x-auto no-scrollbar px-4 py-1" style={{ top: "76px" }}>
+            <button
+              onClick={() => {
+                setSelectedUsers([]);
+                setSelectedPlace(null);
+              }}
+              className={`flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95 ${
+                selectedUsers.length === 0
+                  ? "bg-brand-green-800 border-brand-green-800 text-white"
+                  : "bg-white/95 border-slate-100 text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Users className="h-3.5 w-3.5" />
+              <span>Alle</span>
+            </button>
+
+            {friends.map((friend) => (
+              <button
+                key={friend.id}
+                onClick={() => handleToggleUser(friend.id)}
+                className={`flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95 ${
+                  selectedUsers.includes(friend.id)
+                    ? "bg-brand-green-800 border-brand-green-800 text-white"
+                    : "bg-white/95 border-slate-100 text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <div className={`flex h-5 w-5 items-center justify-center overflow-hidden rounded-full text-[9px] font-bold text-white ${friend.color}`}>
+                  {friend.avatarUrl ? (
+                    <img
+                      src={friend.avatarUrl}
+                      alt="Profilbild"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    friend.initials
+                  )}
+                </div>
+                <span>{friend.name}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="absolute left-0 right-0 z-10 flex flex-nowrap gap-2 overflow-x-auto no-scrollbar px-4 py-1" style={{ top: "76px" }}>
+            <Link
+              href="/profile/friends"
+              className="flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-100 bg-white/95 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              <span>Freunde hinzufuegen</span>
+            </Link>
+          </div>
+        )
+      )}
+
 
           {/* Suggestions Dropdown */}
           {showSuggestions && (suggestions.length > 0 || isSearching) && (
@@ -839,59 +1031,6 @@ export default function MapViewContent() {
         </div>
       )}
 
-      {/* Floating Friends Filter Bar or Add Friends Button */}
-      {!isLoading && (
-        user && friends.length > 0 ? (
-          <div className="absolute left-0 right-0 z-10 flex flex-nowrap gap-2 overflow-x-auto no-scrollbar px-4 py-1" style={{ top: "70px" }}>
-            <button
-              onClick={() => handleSelectUser(null)}
-              className={`flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95 ${
-                selectedUser === null
-                  ? "bg-brand-green-800 border-brand-green-800 text-white"
-                  : "bg-white/95 border-slate-100 text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              <Users className="h-3.5 w-3.5" />
-              <span>Alle</span>
-            </button>
-
-            {friends.map((friend) => (
-              <button
-                key={friend.id}
-                onClick={() => handleSelectUser(friend.id)}
-                className={`flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95 ${
-                  selectedUser === friend.id
-                    ? "bg-brand-green-800 border-brand-green-800 text-white"
-                    : "bg-white/95 border-slate-100 text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                <div className={`flex h-5 w-5 items-center justify-center overflow-hidden rounded-full text-[9px] font-bold text-white ${friend.color}`}>
-                  {friend.avatarUrl ? (
-                    <img
-                      src={friend.avatarUrl}
-                      alt="Profilbild"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    friend.initials
-                  )}
-                </div>
-                <span>{friend.name}</span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="absolute left-0 right-0 z-10 flex flex-nowrap gap-2 overflow-x-auto no-scrollbar px-4 py-1" style={{ top: "70px" }}>
-            <Link
-              href="/profile/friends"
-              className="flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-100 bg-white/95 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-all duration-200 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-md active:scale-95"
-            >
-              <UserPlus className="h-3.5 w-3.5" />
-              <span>Freunde hinzufügen</span>
-            </Link>
-          </div>
-        )
-      )}
 
       {/* Mapbox Map */}
       <div className="w-full h-full flex-1">
