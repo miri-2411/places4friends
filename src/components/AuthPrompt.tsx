@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LogIn, UserPlus, MapPin } from "lucide-react";
 
-export default function AuthPrompt({ context }: { context: "profile" | "create" }) {
+export default function AuthPrompt({ context }: { context: "profile" | "create" | "activities" }) {
   const messages = {
     profile: {
       title: "Dein Profil",
@@ -13,7 +13,13 @@ export default function AuthPrompt({ context }: { context: "profile" | "create" 
       description:
         "Melde dich an oder erstelle ein Konto, um Orte zu empfehlen und auf der Karte mit deinen Freunden zu teilen.",
     },
+    activities: {
+      title: "Aktivitäten",
+      description:
+        "Melde dich an oder erstelle ein Konto, um die neuesten Aktivitäten und Empfehlungen deiner Freunde zu sehen.",
+    },
   };
+
 
   const { title, description } = messages[context];
 

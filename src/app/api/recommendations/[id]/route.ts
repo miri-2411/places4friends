@@ -23,96 +23,99 @@ function normalizeCategories(input: unknown): string[] {
 }
 
 export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+   request: Request,
+   { params }: { params: Promise<{ id: string }> }
+ ) {
+   const { id } = await params;
+   const supabase = await createClient();
+   const {
+     data: { user },
+   } = await supabase.auth.getUser();
+ 
+   if (!user) {
+     return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
+   }
+ 
+   let payload: {
+     placeName?: unknown;
+     description?: unknown;
+     isSuperLike?: unknown;
+     categories?: unknown;
+   };
+ 
+   try {
+     payload = await request.json();
+   } catch {
+     return NextResponse.json({ error: "Ungueltige Anfrage." }, { status: 400 });
+   }
+ 
+   const placeName = typeof payload.placeName === "string" ? payload.placeName.trim() : "";
+   if (!placeName) {
+     return NextResponse.json({ error: "Name fehlt." }, { status: 400 });
+   }
+ 
+   if (typeof payload.isSuperLike !== "boolean") {
+     return NextResponse.json({ error: "Ungueltige Markierung." }, { status: 400 });
+   }
+ 
+   const description = typeof payload.description === "string" ? payload.description.trim() : null;
+   const categories = normalizeCategories(payload.categories);
+ 
+   const { data, error } = await supabase
+     .from("activities")
+     .update({
+       place_name: placeName,
+       description: description || null,
+       is_superlike: payload.isSuperLike,
+       categories,
+     })
+     .eq("id", id)
+     .eq("user_id", user.id)
+     .select("id")
+     .maybeSingle();
+ 
+   if (error) {
+     console.error("activities update failed", {
+       message: error.message,
+       details: error.details,
+       hint: error.hint,
+       code: error.code,
+     });
+     return NextResponse.json(
+       { error: "Empfehlung konnte nicht gespeichert werden." },
+       { status: 500 }
+     );
+   }
+ 
+   if (!data) {
+     return NextResponse.json({ error: "Nicht gefunden." }, { status: 404 });
+   }
+ 
+   return NextResponse.json({ id: data.id });
+ }
+ 
+ export async function DELETE(
+   _request: Request,
+   { params }: { params: Promise<{ id: string }> }
+ ) {
+   const { id } = await params;
+   const supabase = await createClient();
+   const {
+     data: { user },
+   } = await supabase.auth.getUser();
+ 
+   if (!user) {
+     return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
+   }
+ 
+   const { data, error } = await supabase
+     .from("activities")
+     .delete()
+     .eq("id", id)
+     .eq("user_id", user.id)
+     .select("id")
+     .maybeSingle();
 
-  if (!user) {
-    return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
-  }
-
-  let payload: {
-    placeName?: unknown;
-    description?: unknown;
-    isSuperLike?: unknown;
-    categories?: unknown;
-  };
-
-  try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Ungueltige Anfrage." }, { status: 400 });
-  }
-
-  const placeName = typeof payload.placeName === "string" ? payload.placeName.trim() : "";
-  if (!placeName) {
-    return NextResponse.json({ error: "Name fehlt." }, { status: 400 });
-  }
-
-  if (typeof payload.isSuperLike !== "boolean") {
-    return NextResponse.json({ error: "Ungueltige Markierung." }, { status: 400 });
-  }
-
-  const description = typeof payload.description === "string" ? payload.description.trim() : null;
-  const categories = normalizeCategories(payload.categories);
-
-  const { data, error } = await supabase
-    .from("activities")
-    .update({
-      place_name: placeName,
-      description: description || null,
-      is_superlike: payload.isSuperLike,
-      categories,
-    })
-    .eq("id", params.id)
-    .eq("user_id", user.id)
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    console.error("activities update failed", {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code,
-    });
-    return NextResponse.json(
-      { error: "Empfehlung konnte nicht gespeichert werden." },
-      { status: 500 }
-    );
-  }
-
-  if (!data) {
-    return NextResponse.json({ error: "Nicht gefunden." }, { status: 404 });
-  }
-
-  return NextResponse.json({ id: data.id });
-}
-
-export async function DELETE(
-  _request: Request,
-  { params }: { params: { id: string } }
-) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
-  }
-
-  const { data, error } = await supabase
-    .from("activities")
-    .delete()
-    .eq("id", params.id)
-    .eq("user_id", user.id)
-    .select("id")
-    .maybeSingle();
 
   if (error) {
     console.error("activities delete failed", {
