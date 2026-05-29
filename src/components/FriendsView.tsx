@@ -454,8 +454,8 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
 
       {/* Search Modal */}
       {isSearchModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm transition-all duration-300">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl transition-all duration-350 flex flex-col max-h-[80vh]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm transition-all duration-300">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl transition-all duration-350 flex flex-col min-h-[520px] max-h-[85vh]">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 bg-white">
               <h2 className="text-sm font-bold text-slate-900">Freunde suchen & hinzufügen</h2>
@@ -572,14 +572,16 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
                     })}
                   </div>
                 ) : searchQuery.trim() !== "" ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center">
-                    <User className="h-8 w-8 text-slate-350 mx-auto" />
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-16 text-center flex flex-col items-center justify-center min-h-[260px]">
+                    <User className="h-8 w-8 text-slate-300 mb-3" />
                     <p className="text-xs text-slate-450 mt-2 font-medium">Keine Profile gefunden</p>
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center">
-                    <Search className="h-8 w-8 text-slate-300 mx-auto" />
-                    <p className="text-xs text-slate-400 mt-2 font-medium">Finde deine Freunde über ihren Namen oder Username</p>
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-16 text-center flex flex-col items-center justify-center min-h-[260px]">
+                    <Search className="h-8 w-8 text-slate-300 mb-3" />
+                    <p className="text-xs text-slate-400 font-medium max-w-[200px] leading-relaxed">
+                      Finde deine Freunde über ihren Namen oder Username
+                    </p>
                   </div>
                 )}
               </div>
