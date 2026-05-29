@@ -10,11 +10,37 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL
+      ? `https://${process.env.NEXT_PUBLIC_SITE_URL}`
+      : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000"
+  ),
   title: "places4friends",
   description: "Teile und erkunde interessante Orte mit deinen Freunden.",
   icons: {
     icon: "/logo-round.png",
     apple: "/logo.jpg",
+  },
+  openGraph: {
+    title: "places4friends",
+    description: "Teile und erkunde interessante Orte mit deinen Freunden.",
+    images: [
+      {
+        url: "/socialbanner.jpg",
+        width: 1200,
+        height: 630,
+        alt: "places4friends Social Banner",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "places4friends",
+    description: "Teile und erkunde interessante Orte mit deinen Freunden.",
+    images: ["/socialbanner.jpg"],
   },
 };
 
