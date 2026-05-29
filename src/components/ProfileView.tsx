@@ -190,8 +190,13 @@ export default function ProfileView({
       setAvatarPublicUrl(null);
       return;
     }
-    const { data } = supabase.storage.from("avatars").getPublicUrl(avatarPath);
-    setAvatarPublicUrl(`${data.publicUrl}?t=${Date.now()}`);
+    setAvatarPublicUrl((current) => {
+      if (current && current.startsWith("blob:")) {
+        return current;
+      }
+      const { data } = supabase.storage.from("avatars").getPublicUrl(avatarPath);
+      return `${data.publicUrl}?t=${Date.now()}`;
+    });
   }, [avatarPath]);
 
   useEffect(() => {
@@ -343,12 +348,16 @@ export default function ProfileView({
       return;
     }
 
+    const originalUrl = avatarPublicUrl;
     setIsUploadingAvatar(true);
     try {
       const blob = await exportCroppedBlob();
       if (!blob) {
         throw new Error("CROP_FAILED");
       }
+
+      const localUrl = URL.createObjectURL(blob);
+      setAvatarPublicUrl(localUrl);
 
       const filePath = `${user.id}/avatar.jpg`;
       const { error: uploadError } = await supabase.storage
@@ -375,6 +384,7 @@ export default function ProfileView({
       setAvatarPath(filePath);
       resetCropState();
     } catch (error) {
+      setAvatarPublicUrl(originalUrl);
       setAvatarError("Profilbild konnte nicht gespeichert werden.");
     } finally {
       setIsUploadingAvatar(false);
