@@ -26,10 +26,53 @@ const STEPS: StepDefinition[] = [
     id: "welcome",
     title: "Willkommen bei places4friends",
     description:
-      "Hier sammelst du Empfehlungen von Freunden und behältst besondere Orte auf einer gemeinsamen Karte im Blick.",
+      "Hier kannst du deinen Freunden Orte empfehlen und von deinen Freunden Empfehlungen erhalten. Auf einer gemeinsamen Karte behaltet ihr alle Orte im Überblick. Unten in der Menüleiste findest du die wichtigsten Bereiche.",
     bullets: [
-      "Empfehlungen sind persönlich, keine anonymen Sterne.",
-      "Highlights markieren Orte, die man wirklich sehen muss.",
+      "Karte: Entdecke Empfehlungen im Kontext.",
+      "Aktivitäten: Sieh die neusten Empfehlungen deiner Freunde.",
+      "Empfehlen: Füge eigene Orte hinzu.",
+      "Freunde: Freundschaftsanfragen erhalten und versenden.",
+      "Profil: Sieh deine Empfehlungen und deine Merkliste.",
+    ],
+  },
+  
+  {
+    id: "map",
+    title: "Die Karte verstehen",
+    description:
+      "Die Karte ist dein Radar. Filtere Empfehlungen, entdecke Highlights und öffne Details direkt am Pin.",
+    bullets: [
+      "Mit Filtern findest du Highlights oder Kategorien.",
+      "Das Ebenen-Menü wechselt den Kartenstil.",
+      "Darunter kannst du auch deinen Standort aktivieren.",
+      "Ein Tap auf den Pin öffnet Details und Kommentare.",
+    ],
+    hint: {
+      text: "Filter und Ebenen findest du oben in der Karte.",
+      placement: "top-right",
+    },
+  },
+  {
+    id: "activities",
+    title: "Aktivitäten verstehen",
+    description:
+      "Hier siehst du die neusten Empfehlungen deiner Freunde.",
+    bullets: [
+      "Klicke auf das Bookmark Symbol, um die Aktivität deiner Wishlist hinzuzufügen.",
+      "Klicke auf das Kommentar Symbol, um einen Kommentar zu hinterlassen.",
+      "Klicke auf das Navigations Button, um zur Aktivität zu gelangen."
+    ],
+  },
+  {
+    id: "recommendations",
+    title: "Empfehlungen abgeben",
+    description:
+      "Hier kannst du neue Empfehlungen hinzufügen.",
+    bullets: [
+      "Mit einem Klick auf die Karte setzt du einen Pin. Alternativ kannst du in der Suchleiste einen Ort suchen.",
+      "Füge dann weitere Details zu deiner Empfehlung hinzu.",
+      "Optional kannst du auch Fotos hochladen.",
+      "Mit Klick auf Speichern erscheint deine Empfehlung in Karten.",
     ],
   },
   {
@@ -41,46 +84,17 @@ const STEPS: StepDefinition[] = [
       "Suche nach Namen oder Benutzernamen.",
       "Freundschaftsanfragen findest du im Freunde-Tab.",
     ],
-    action: {
-      label: "Freunde finden",
-      href: "/profile/friends",
-    },
-    hint: {
-      text: "Der Freunde-Tab ist hier unten.",
-      placement: "bottom-nav",
-    },
   },
   {
-    id: "map",
-    title: "Die Karte verstehen",
+    id: "profile",
+    title: "Profil bearbeiten",
     description:
-      "Die Karte ist dein Radar. Filtere Empfehlungen, entdecke Highlights und öffne Details direkt am Pin.",
+      "Hier kannst du deine Daten verwalten und deine Empfehlungen verwalten.",
     bullets: [
-      "Mit Filtern findest du Highlights oder Kategorien.",
-      "Das Ebenen-Menü wechselt den Kartenstil.",
-      "Ein Tap auf den Pin öffnet Details und Kommentare.",
+      "Im Menü rechts oben kannst du unter Einstellungen deine Profil bearbeiten.",
+      "Bei Meinen Empfehlungen kannst du deine Empfehlungen bearbeiten oder löschen.",
+      "Unter Wishlist siehst du deine vorgemerkten Empfehlungen."
     ],
-    hint: {
-      text: "Filter und Ebenen findest du oben in der Karte.",
-      placement: "top-right",
-    },
-  },
-  {
-    id: "pages",
-    title: "Alle Bereiche im Blick",
-    description:
-      "Unten findest du die wichtigsten Bereiche. Jeder Tab hat einen klaren Fokus.",
-    bullets: [
-      "Karte: Empfehlungen im Kontext entdecken.",
-      "Aktivitäten: Neueste Empfehlungen deiner Freunde.",
-      "Empfehlen: Eigene Orte hinzufügen.",
-      "Freunde: Kontakte verwalten und Anfragen senden.",
-      "Profil: Eigene Empfehlungen und Merkliste.",
-    ],
-    hint: {
-      text: "Die Navigation ist immer am unteren Rand.",
-      placement: "bottom-nav",
-    },
   },
 ];
 
