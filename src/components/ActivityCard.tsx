@@ -216,7 +216,7 @@ export default function ActivityCard({
       {/* Lightbox Modal */}
       {activeImageUrl && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm transition-all duration-300"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm transition-all duration-300"
           onClick={() => setActiveImageUrl(null)}
         >
           <div className="relative max-h-[90vh] max-w-[90vw] overflow-hidden rounded-2xl bg-black shadow-2xl" onClick={(e) => e.stopPropagation()}>
