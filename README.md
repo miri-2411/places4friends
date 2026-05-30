@@ -2,7 +2,7 @@
 
 Discover the best spots, curated by the friends you trust.
 
-places4friends is a social discovery platform designed to help you share and explore local highlights with your closest friends. No generic reviews or fake ratings—just genuine recommendations from the people whose taste you actually trust.
+places4friends is a social discovery platform designed to help you share and explore local highlights with your closest friends. No generic reviews or fake ratings—just genuine recommendations from the people you trust.
 
 ---
 
@@ -22,7 +22,7 @@ places4friends is a social discovery platform designed to help you share and exp
 * **Public Profile Views**: Check out other users' public profile dashboards to see their total friend count, personal recommendations, and wishlist.
 
 ### 3. Recommendation Engine
-* **POI & Location Search**: Integrated Mapbox Search Box API to lookup specific businesses, restaurants, or cities in the recommendation creation tab.
+* **POI & Location Search**: Integrated Mapbox Search Box API and Google Places API to lookup specific businesses, restaurants, or cities in the recommendation creation tab.
 * **Must See Badges**: Highlight key spots with a premium amber "Must See" status, making them stand out in feeds.
 * **Media Upload & Management**: Upload photos of recommended places directly to Supabase Storage with local blob optimistic previews.
 * **Category Tagging**: Tag places with custom categories (e.g. Restaurants, Cafes, Bars, Sightseeing) for structured indexing.
@@ -31,12 +31,11 @@ places4friends is a social discovery platform designed to help you share and exp
 * **Consolidated Activity Feed**: Chronological list of recommendations posted by your friends.
 * **Modular Activity Cards**: Reusable visual components displaying place information, categories, images, and quick wishlist toggle actions.
 * **Social Comments**: Real-time discussion thread per activity to discuss places, ask questions, or plan visits.
-* **Wishlist ("Merkliste")**: Bookmark recommendations on your personal wishlist and view them in your profile.
+* **Wishlist**: Bookmark recommendations on your personal wishlist and view them in your profile.
 
 ### 5. Profile & Settings Control
 * **Personalized Profiles**: View personal contributions, update display names, and edit usernames.
 * **Avatar Upload & Cache Busting**: Custom profile image uploads with automatic cache-busting logic to ensure immediate visual updates.
-* **Notification Toggles**: Choose whether to receive email notifications for new friend requests.
 * **Account Deletion**: Fully compliant, interactive account deletion process with built-in verification prompts to permanently wipe personal data.
 
 ### 6. Branding & SEO Excellence
@@ -108,12 +107,7 @@ places4friends is a social discovery platform designed to help you share and exp
 
 ---
 
-## Development & Deployment Guidelines
-
-### Key Rules
-* **No Emojis**: Do not use emojis in the codebase, the user interface, or any documentation.
-* **German Umlauts**: Use correct German umlauts (ä, ö, ü, Ä, Ö, Ü) in all user-facing German copy. Do not use ae, oe, ue substitutions.
-* **Modular Code**: Build reusable visual components in `src/components/` and separate business logic from pure presentation.
+## Development & Setup
 
 ### Environment Setup
 Create a `.env.local` file in the root directory:
