@@ -26,14 +26,7 @@ const STEPS: StepDefinition[] = [
     id: "welcome",
     title: "Willkommen bei places4friends",
     description:
-      "Hier kannst du deinen Freunden Orte empfehlen und von deinen Freunden Empfehlungen erhalten. Auf einer gemeinsamen Karte behaltet ihr alle Orte im Überblick. Unten in der Menüleiste findest du die wichtigsten Bereiche.",
-    bullets: [
-      "Karte: Entdecke Empfehlungen im Kontext.",
-      "Aktivitäten: Sieh die neusten Empfehlungen deiner Freunde.",
-      "Empfehlen: Füge eigene Orte hinzu.",
-      "Freunde: Freundschaftsanfragen erhalten und versenden.",
-      "Profil: Sieh deine Empfehlungen und deine Merkliste.",
-    ],
+      "Hier kannst du besondere Orte mit deinen Freunden teilen und ihre Empfehlungen erkunden. Auf einer gemeinsamen Karte behaltet ihr alle Orte im Überblick.",
   },
   
   {
@@ -42,10 +35,9 @@ const STEPS: StepDefinition[] = [
     description:
       "Die Karte ist dein Radar. Filtere Empfehlungen, entdecke Highlights und öffne Details direkt am Pin.",
     bullets: [
-      "Mit Filtern findest du Highlights oder Kategorien.",
-      "Das Ebenen-Menü wechselt den Kartenstil.",
-      "Darunter kannst du auch deinen Standort aktivieren.",
-      "Ein Tap auf den Pin öffnet Details und Kommentare.",
+      "Filtere nach Kategorien oder Freunden.",
+      "Springe direkt zu deinem Standort.",
+      "Klicke auf Pins, um Details und Kommentare zu sehen.",
     ],
     hint: {
       text: "Filter und Ebenen findest du oben in der Karte.",
@@ -60,7 +52,7 @@ const STEPS: StepDefinition[] = [
     bullets: [
       "Klicke auf das Bookmark Symbol, um die Aktivität deiner Wishlist hinzuzufügen.",
       "Klicke auf das Kommentar Symbol, um einen Kommentar zu hinterlassen.",
-      "Klicke auf das Navigations Button, um zur Aktivität zu gelangen."
+      "Klicke auf das Navigations Button, um die Route zu öffnen.",
     ],
   },
   {
@@ -69,9 +61,10 @@ const STEPS: StepDefinition[] = [
     description:
       "Hier kannst du neue Empfehlungen hinzufügen.",
     bullets: [
-      "Mit einem Klick auf die Karte setzt du einen Pin. Alternativ kannst du in der Suchleiste einen Ort suchen.",
+      "Drücke auf die Karte, um einen Pin zu setzen.",
+      "Alternativ kannst du auch in der Suchleiste nach einem Ort suchen und diesen auswählen.",
       "Füge dann weitere Details zu deiner Empfehlung hinzu.",
-      "Optional kannst du auch Fotos hochladen.",
+      "Füge bis zu 3 Bilder hinzu, um die besten Eindrücke zu teilen.",
       "Mit Klick auf Speichern erscheint deine Empfehlung in Karten.",
     ],
   },
@@ -83,6 +76,7 @@ const STEPS: StepDefinition[] = [
     bullets: [
       "Suche nach Namen oder Benutzernamen.",
       "Freundschaftsanfragen findest du im Freunde-Tab.",
+      "Teile einen Freundeslink, um dich direkt mit Freunden zu verbinden.",
     ],
   },
   {
@@ -93,7 +87,8 @@ const STEPS: StepDefinition[] = [
     bullets: [
       "Im Menü rechts oben kannst du unter Einstellungen deine Profil bearbeiten.",
       "Bei Meinen Empfehlungen kannst du deine Empfehlungen bearbeiten oder löschen.",
-      "Unter Wishlist siehst du deine vorgemerkten Empfehlungen."
+      "Unter Wishlist siehst du deine vorgemerkten Empfehlungen.",
+      "Setze ein Profilbild, damit Freunde dich leichter erkennen können.",
     ],
   },
 ];
