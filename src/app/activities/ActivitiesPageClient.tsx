@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import ActivitiesView from "@/components/ActivitiesView";
 import AuthGate from "@/components/auth/AuthGate";
@@ -16,11 +16,10 @@ function ActivitiesContent({ user }: { user: User }) {
   >([]);
   const [wishlistedIds, setWishlistedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const isMountedRef = useRef(true);
 
-  useEffect(() => {
-    let mounted = true;
-
-    async function load() {
+  const loadActivities = useCallback(
+    async (options?: { skipLoadingState?: boolean }) => {
       const { data: friendships } = await supabase
         .from("friendships")
         .select(
@@ -120,17 +119,61 @@ function ActivitiesContent({ user }: { user: User }) {
         .select("activity_id")
         .eq("user_id", user.id);
 
-      if (!mounted) return;
+      if (!isMountedRef.current) return;
       setActivities(loadedActivities);
       setWishlistedIds((wishlistData || []).map((w) => w.activity_id));
-      setLoading(false);
+      if (!options?.skipLoadingState) {
+        setLoading(false);
+      }
+    },
+    [supabase, user.id]
+  );
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    let mounted = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    async function load() {
+      await loadActivities();
+      if (!mounted) return;
+
+      channel = supabase
+        .channel(`activities-feed-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "activities",
+          },
+          () => {
+            void loadActivities({ skipLoadingState: true });
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "friendships",
+          },
+          () => {
+            void loadActivities({ skipLoadingState: true });
+          }
+        )
+        .subscribe();
     }
 
     load();
     return () => {
       mounted = false;
+      isMountedRef.current = false;
+      if (channel) {
+        void supabase.removeChannel(channel);
+      }
     };
-  }, [supabase, user.id]);
+  }, [loadActivities, supabase, user.id]);
 
   if (loading) {
     return <ActivitiesSkeleton />;

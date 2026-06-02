@@ -79,6 +79,14 @@ export default function ActivitiesView({
   }, [initialWishlistedIds]);
 
   useEffect(() => {
+    const nextCounts: Record<string, number> = {};
+    activities.forEach((act) => {
+      nextCounts[act.id] = act.commentCount ?? 0;
+    });
+    setCommentCounts(nextCounts);
+  }, [activities]);
+
+  useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUserId(data.user?.id ?? null);
     });

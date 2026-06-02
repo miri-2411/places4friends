@@ -49,6 +49,13 @@ interface Place {
   createdAt: string;
 }
 
+interface ClusteredPlaceGroup {
+  id: string;
+  latitude: number;
+  longitude: number;
+  places: Place[];
+}
+
 interface ActivityComment {
   id: string;
   userId: string;
@@ -110,6 +117,197 @@ const POPUP_OFFSETS: { [key: string]: [number, number] } = {
   'left': [14, -16],
   'right': [-14, -16]
 };
+
+// Pin markers are h-10/w-10 (40px); cluster when circle centers would overlap.
+const MARKER_DIAMETER_PX = 40;
+
+function projectToWorldPixel(longitude: number, latitude: number, zoom: number) {
+  const worldSize = 512 * Math.pow(2, zoom);
+  const x = ((longitude + 180) / 360) * worldSize;
+  const latRad = (latitude * Math.PI) / 180;
+  const mercatorY = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
+  const y = ((1 - mercatorY / Math.PI) / 2) * worldSize;
+  return { x, y };
+}
+
+function clusterPlacesByScreenOverlap(places: Place[], zoom: number): ClusteredPlaceGroup[] {
+  if (places.length === 0) return [];
+
+  const clusterZoom = Math.round(zoom * 2) / 2;
+  const overlapDistanceSq = MARKER_DIAMETER_PX * MARKER_DIAMETER_PX;
+  const points = places.map((place) => ({
+    place,
+    ...projectToWorldPixel(place.longitude, place.latitude, clusterZoom),
+  }));
+
+  const parent = points.map((_, index) => index);
+
+  const findRoot = (index: number): number => {
+    if (parent[index] !== index) {
+      parent[index] = findRoot(parent[index]);
+    }
+    return parent[index];
+  };
+
+  const union = (leftIndex: number, rightIndex: number) => {
+    const leftRoot = findRoot(leftIndex);
+    const rightRoot = findRoot(rightIndex);
+    if (leftRoot !== rightRoot) {
+      parent[rightRoot] = leftRoot;
+    }
+  };
+
+  for (let i = 0; i < points.length; i += 1) {
+    for (let j = i + 1; j < points.length; j += 1) {
+      const dx = points[i].x - points[j].x;
+      const dy = points[i].y - points[j].y;
+      if (dx * dx + dy * dy < overlapDistanceSq) {
+        union(i, j);
+      }
+    }
+  }
+
+  const groups = new globalThis.Map<number, Place[]>();
+  points.forEach((point, index) => {
+    const root = findRoot(index);
+    const existing = groups.get(root);
+    if (existing) {
+      existing.push(point.place);
+    } else {
+      groups.set(root, [point.place]);
+    }
+  });
+
+  return Array.from(groups.values()).map((groupedPlaces) => {
+    const stablePlaceKey = groupedPlaces
+      .map((place) => place.id)
+      .sort((a, b) => a.localeCompare(b))
+      .join("|");
+    const latSum = groupedPlaces.reduce((sum, place) => sum + place.latitude, 0);
+    const lngSum = groupedPlaces.reduce((sum, place) => sum + place.longitude, 0);
+    return {
+      id: stablePlaceKey,
+      latitude: latSum / groupedPlaces.length,
+      longitude: lngSum / groupedPlaces.length,
+      places: groupedPlaces,
+    };
+  });
+}
+
+const CLUSTER_EXPAND_MAX_ZOOM = 19;
+const CLUSTER_EXPAND_ZOOM_BUFFER = 0.5;
+
+// Reserve space for floating search/filters (top) and tab bar + map controls (bottom).
+const CLUSTER_EXPAND_MAP_PADDING = {
+  top: 132,
+  right: 56,
+  bottom: 156,
+  left: 56,
+};
+
+// Extra top inset so the place popup clears search bar + friend filters.
+const SINGLE_PIN_SELECT_MAP_PADDING = {
+  top: 320,
+  right: 56,
+  bottom: 156,
+  left: 56,
+};
+
+const POPUP_REVIEW_MAX_LENGTH = 200;
+
+function truncatePopupText(text: string, maxLength = POPUP_REVIEW_MAX_LENGTH): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxLength) return trimmed;
+  return `${trimmed.slice(0, maxLength).trimEnd()}...`;
+}
+
+function placesFitInViewport(
+  places: Place[],
+  zoom: number,
+  mapWidth: number,
+  mapHeight: number,
+  padding: typeof CLUSTER_EXPAND_MAP_PADDING
+): boolean {
+  if (places.length === 0) return true;
+
+  const pixels = places.map((place) =>
+    projectToWorldPixel(place.longitude, place.latitude, zoom)
+  );
+  const xs = pixels.map((point) => point.x);
+  const ys = pixels.map((point) => point.y);
+  const spanX = Math.max(...xs) - Math.min(...xs) + MARKER_DIAMETER_PX;
+  const spanY = Math.max(...ys) - Math.min(...ys) + MARKER_DIAMETER_PX;
+  const availableWidth = mapWidth - padding.left - padding.right;
+  const availableHeight = mapHeight - padding.top - padding.bottom;
+
+  return spanX <= availableWidth && spanY <= availableHeight;
+}
+
+function findMinZoomToSplitCluster(places: Place[], currentZoom: number): number | null {
+  const startZoom = Math.max(currentZoom + 0.5, 0);
+  for (let zoom = startZoom; zoom <= CLUSTER_EXPAND_MAX_ZOOM; zoom += 0.5) {
+    if (clusterPlacesByScreenOverlap(places, zoom).length > 1) {
+      return zoom;
+    }
+  }
+  return null;
+}
+
+function findOptimalClusterExpandZoom(
+  places: Place[],
+  currentZoom: number,
+  mapWidth: number,
+  mapHeight: number
+): number {
+  const minSplitZoom = findMinZoomToSplitCluster(places, currentZoom);
+  if (minSplitZoom === null) {
+    return CLUSTER_EXPAND_MAX_ZOOM;
+  }
+
+  let low = minSplitZoom;
+  let high = CLUSTER_EXPAND_MAX_ZOOM;
+  let best = minSplitZoom;
+
+  while (high - low > 0.05) {
+    const mid = (low + high) / 2;
+    const splits = clusterPlacesByScreenOverlap(places, mid).length > 1;
+    const fits = placesFitInViewport(places, mid, mapWidth, mapHeight, CLUSTER_EXPAND_MAP_PADDING);
+    if (splits && fits) {
+      best = mid;
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+
+  const zoomWithBuffer = Math.max(0, best - CLUSTER_EXPAND_ZOOM_BUFFER);
+  return Math.round(zoomWithBuffer * 2) / 2;
+}
+
+function getClusterBounds(places: Place[]): [[number, number], [number, number]] {
+  const lngs = places.map((place) => place.longitude);
+  const lats = places.map((place) => place.latitude);
+  let minLng = Math.min(...lngs);
+  let maxLng = Math.max(...lngs);
+  let minLat = Math.min(...lats);
+  let maxLat = Math.max(...lats);
+
+  if (minLng === maxLng) {
+    const lngPad = 0.00025;
+    minLng -= lngPad;
+    maxLng += lngPad;
+  }
+  if (minLat === maxLat) {
+    const latPad = 0.00025;
+    minLat -= latPad;
+    maxLat += latPad;
+  }
+
+  return [
+    [minLng, minLat],
+    [maxLng, maxLat],
+  ];
+}
 
 export default function MapViewContent() {
   const supabase = createClient();
@@ -445,6 +643,11 @@ export default function MapViewContent() {
     return next;
   }, [places, recommendationFilter, selectedCategories, selectedUsers]);
 
+  const clusteredPlaceGroups = useMemo<ClusteredPlaceGroup[]>(
+    () => clusterPlacesByScreenOverlap(filteredPlaces, viewState.zoom),
+    [filteredPlaces, viewState.zoom]
+  );
+
   useEffect(() => {
     if (!selectedPlace) return;
     const isVisible = filteredPlaces.some((place) => place.id === selectedPlace.id);
@@ -626,6 +829,74 @@ export default function MapViewContent() {
         setIsLocating(false);
       });
   };
+
+  const handlePlaceSelect = useCallback(
+    (place: Place) => {
+      setSelectedPlace(place);
+
+      const map = mapRef.current?.getMap?.() ?? mapRef.current;
+      if (!map) return;
+
+      const targetZoom = Math.min(
+        CLUSTER_EXPAND_MAX_ZOOM,
+        Math.max(viewState.zoom, ZOOM_DETAIL)
+      );
+      const bounds = getClusterBounds([place]);
+      const centerLng = place.longitude;
+      const centerLat = place.latitude;
+
+      map.fitBounds(bounds, {
+        padding: SINGLE_PIN_SELECT_MAP_PADDING,
+        maxZoom: targetZoom,
+        duration: 550,
+        essential: true,
+      });
+
+      setViewState((prev) => ({
+        ...prev,
+        latitude: centerLat,
+        longitude: centerLng,
+        zoom: Math.max(prev.zoom, targetZoom),
+      }));
+    },
+    [viewState.zoom]
+  );
+
+  const handleClusterExpand = useCallback(
+    (group: ClusteredPlaceGroup) => {
+      const map = mapRef.current?.getMap?.() ?? mapRef.current;
+      if (!map) return;
+
+      const clusterPlaces = group.places;
+      const container = map.getContainer?.() as HTMLElement | undefined;
+      const mapWidth = container?.clientWidth ?? window.innerWidth;
+      const mapHeight = container?.clientHeight ?? window.innerHeight;
+      const targetZoom = findOptimalClusterExpandZoom(
+        clusterPlaces,
+        viewState.zoom,
+        mapWidth,
+        mapHeight
+      );
+      const bounds = getClusterBounds(clusterPlaces);
+      const centerLng = (bounds[0][0] + bounds[1][0]) / 2;
+      const centerLat = (bounds[0][1] + bounds[1][1]) / 2;
+
+      map.fitBounds(bounds, {
+        padding: CLUSTER_EXPAND_MAP_PADDING,
+        maxZoom: targetZoom,
+        duration: 550,
+        essential: true,
+      });
+
+      setViewState((prev) => ({
+        ...prev,
+        latitude: centerLat,
+        longitude: centerLng,
+        zoom: Math.min(prev.zoom, targetZoom),
+      }));
+    },
+    [viewState.zoom]
+  );
 
   const toggleWishlist = async (activityId: string) => {
     if (!user) return;
@@ -1106,37 +1377,97 @@ export default function MapViewContent() {
           mapStyle={currentStyle}
           mapboxAccessToken={mapboxToken}
         >
-          {filteredPlaces.map((place) => (
-            <Marker
-              key={place.id}
-              latitude={place.latitude}
-              longitude={place.longitude}
-              anchor="bottom"
-            >
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedPlace(place);
-                }}
-                className="group relative flex flex-col items-center cursor-pointer transition-transform duration-200 hover:scale-110 active:scale-95"
+          {clusteredPlaceGroups.map((group) => {
+            if (group.places.length > 1) {
+              const count = group.places.length;
+              const countLabel = count > 9 ? "9+" : String(count);
+              const uniqueUserIds = new Set(group.places.map((entry) => entry.userId));
+              const singleUserStack = uniqueUserIds.size === 1;
+              const representativePlace = group.places[0];
+              return (
+                <Marker
+                  key={`cluster-${group.id}`}
+                  latitude={group.latitude}
+                  longitude={group.longitude}
+                  anchor="center"
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleClusterExpand(group);
+                    }}
+                    className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-brand-green-800 text-xs font-bold text-white shadow-lg shadow-brand-green-900/30 transition-transform duration-200 hover:scale-110 active:scale-95"
+                    aria-label={`${count} Pins gestapelt`}
+                    title={`${count} Orte`}
+                  >
+                    {singleUserStack ? (
+                      <div className="relative flex h-full w-full items-center justify-center">
+                        <div
+                          className={`flex h-full w-full items-center justify-center overflow-hidden rounded-full text-[10px] font-bold text-white ${
+                            representativePlace.userAvatarUrl ? "bg-slate-200" : representativePlace.userColor
+                          }`}
+                        >
+                          {representativePlace.userAvatarUrl ? (
+                            <img
+                              src={representativePlace.userAvatarUrl}
+                              alt={`Profilbild von ${representativePlace.userName}`}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            representativePlace.userInitials
+                          )}
+                        </div>
+                        <span className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border border-white bg-slate-900 px-1 text-[9px] font-bold leading-none text-white">
+                          {countLabel}
+                        </span>
+                      </div>
+                    ) : (
+                      countLabel
+                    )}
+                  </button>
+                </Marker>
+              );
+            }
+
+            const place = group.places[0];
+            return (
+              <Marker
+                key={place.id}
+                latitude={place.latitude}
+                longitude={place.longitude}
+                anchor="center"
               >
-                <div className={`flex h-8 w-8 items-center justify-center rounded-full border border-white shadow-lg transition-colors duration-200 ${
-                  place.isMustSee
-                    ? "bg-amber-500 text-white shadow-amber-500/30"
-                    : "bg-brand-green-700 text-white shadow-brand-green-700/30"
-                }`}>
-                  {place.isMustSee ? (
-                    <Sparkles className="h-4 w-4 fill-amber-300" />
-                  ) : (
-                    <MapPin className="h-4 w-4" />
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePlaceSelect(place);
+                  }}
+                  className="group relative flex flex-col items-center cursor-pointer transition-transform duration-200 hover:scale-110 active:scale-95"
+                >
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 text-[10px] font-bold text-white shadow-lg ${
+                      place.isMustSee ? "border-amber-400 shadow-amber-400/30" : "border-white"
+                    } ${place.userAvatarUrl ? "bg-slate-200" : place.userColor}`}
+                  >
+                    {place.userAvatarUrl ? (
+                      <img
+                        src={place.userAvatarUrl}
+                        alt={`Profilbild von ${place.userName}`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      place.userInitials
+                    )}
+                  </div>
+                  {!selectedPlace && (
+                    <div className="absolute -top-8 bg-slate-900/90 text-white text-[10px] px-2 py-0.5 rounded shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none font-medium backdrop-blur-sm">
+                      {place.name}
+                    </div>
                   )}
-                </div>
-                <div className="absolute -top-8 bg-slate-900/90 text-white text-[10px] px-2 py-0.5 rounded shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none font-medium backdrop-blur-sm">
-                  {place.name}
-                </div>
-              </button>
-            </Marker>
-          ))}
+                </button>
+              </Marker>
+            );
+          })}
 
           {userLocation && (
             <Marker
@@ -1144,9 +1475,8 @@ export default function MapViewContent() {
               longitude={userLocation.longitude}
               anchor="center"
             >
-              <div className="relative flex h-5 w-5 items-center justify-center pointer-events-none">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-white shadow-md"></span>
+              <div className="flex h-5 w-5 items-center justify-center pointer-events-none">
+                <span className="inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-white shadow-[0_0_0_3px_rgba(16,185,129,0.16),0_2px_6px_rgba(15,23,42,0.16)]"></span>
               </div>
             </Marker>
           )}
@@ -1209,9 +1539,11 @@ export default function MapViewContent() {
                   </span>
                 </div>
 
-                <p className="mt-2 text-xs text-slate-600 leading-relaxed">
-                  {selectedPlace.review}
-                </p>
+                {selectedPlace.review.trim().length > 0 && (
+                  <p className="mt-2 text-xs text-slate-600 leading-relaxed">
+                    {truncatePopupText(selectedPlace.review)}
+                  </p>
+                )}
 
                 {selectedPlace.imageUrls && selectedPlace.imageUrls.length > 0 && (
                   <div className="mt-2.5 grid grid-cols-3 gap-1">

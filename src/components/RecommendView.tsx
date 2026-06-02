@@ -564,9 +564,8 @@ export default function RecommendView() {
                 longitude={userLocation.longitude}
                 anchor="center"
               >
-                <div className="relative flex h-5 w-5 items-center justify-center pointer-events-none">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-white shadow-md"></span>
+                <div className="flex h-5 w-5 items-center justify-center pointer-events-none">
+                  <span className="inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-white shadow-[0_0_0_3px_rgba(16,185,129,0.16),0_2px_6px_rgba(15,23,42,0.16)]"></span>
                 </div>
               </Marker>
             )}
