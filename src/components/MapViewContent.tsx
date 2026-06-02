@@ -40,6 +40,12 @@ import {
 import { applyMapLabelLanguage, MAP_LABEL_LANGUAGE } from "@/lib/mapLanguage";
 import Toast from "@/components/Toast";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import {
+  STORAGE_NOTICE_DISMISSED_KEY,
+  STORAGE_NOTICE_REQUEST_LAYOUT_EVENT,
+  STORAGE_NOTICE_STACK_GAP_PX,
+  STORAGE_NOTICE_VISIBILITY_EVENT,
+} from "@/components/StorageNotice";
 
 interface UserProfile {
   id: string;
@@ -371,6 +377,7 @@ export default function MapViewContent() {
   const [locationToast, setLocationToast] = useState<string | null>(null);
   const [noPlacesToast, setNoPlacesToast] = useState<string | null>(null);
   const [commentDeleteConfirmId, setCommentDeleteConfirmId] = useState<string | null>(null);
+  const [storageNoticeLiftPx, setStorageNoticeLiftPx] = useState(0);
   const [comments, setComments] = useState<ActivityComment[]>([]);
   const [commentInput, setCommentInput] = useState("");
   const [commentError, setCommentError] = useState<string | null>(null);
@@ -658,6 +665,49 @@ export default function MapViewContent() {
     const map = mapRef.current?.getMap?.();
     applyMapLabelLanguage(map);
   }, [currentStyle]);
+
+  useEffect(() => {
+    const updateVisibilityFromStorage = () => {
+      try {
+        const dismissed = globalThis.localStorage?.getItem(STORAGE_NOTICE_DISMISSED_KEY);
+        if (dismissed) {
+          setStorageNoticeLiftPx(0);
+        }
+      } catch {
+        // StorageNotice will report layout on mount
+      }
+    };
+
+    updateVisibilityFromStorage();
+
+    const handleNoticeVisibility = (event: Event) => {
+      const customEvent = event as CustomEvent<{ visible?: boolean; height?: number }>;
+      const visible = Boolean(customEvent.detail?.visible);
+      const height = customEvent.detail?.height ?? 0;
+      // main has pb-4; map bottom sits 16px above layout bottom (same anchor as StorageNotice)
+      const mainBottomPaddingPx = 16;
+      setStorageNoticeLiftPx(
+        visible && height > 0
+          ? height + STORAGE_NOTICE_STACK_GAP_PX - mainBottomPaddingPx
+          : 0
+      );
+    };
+
+    const requestNoticeLayout = () => {
+      window.dispatchEvent(new CustomEvent(STORAGE_NOTICE_REQUEST_LAYOUT_EVENT));
+    };
+
+    window.addEventListener(STORAGE_NOTICE_VISIBILITY_EVENT, handleNoticeVisibility);
+    requestNoticeLayout();
+    return () => {
+      window.removeEventListener(STORAGE_NOTICE_VISIBILITY_EVENT, handleNoticeVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isSessionLoading || user) return;
+    window.dispatchEvent(new CustomEvent(STORAGE_NOTICE_REQUEST_LAYOUT_EVENT));
+  }, [isSessionLoading, user]);
 
   const handleMoveEnd = useCallback(() => {
     void fetchViewportPins();
@@ -2011,7 +2061,15 @@ export default function MapViewContent() {
 
       {/* Floating Login/Register Prompt Modal at the bottom when logged out */}
       {!isSessionLoading && !user && (
-        <div className="absolute bottom-[calc(64px+8px+env(safe-area-inset-bottom))] left-4 right-4 z-20 bg-white/95 p-5 rounded-2xl shadow-2xl backdrop-blur-md flex flex-col gap-3">
+        <div
+          className="absolute left-4 right-4 z-20 bg-white/95 p-5 rounded-2xl shadow-2xl backdrop-blur-md flex flex-col gap-3 transition-all duration-300"
+          style={{
+            bottom:
+              storageNoticeLiftPx > 0
+                ? `calc(64px + 8px + env(safe-area-inset-bottom) + ${storageNoticeLiftPx}px)`
+                : "calc(64px + 8px + env(safe-area-inset-bottom))",
+          }}
+        >
           <div>
 
           {isCommentsOpen && selectedPlace && (
