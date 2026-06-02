@@ -786,9 +786,12 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
 
                       return (
                         <div key={profile.id} className="flex items-center justify-between p-3 first:pt-2 last:pb-2">
-                          <div className="flex items-center gap-3">
+                          <Link
+                            href={`/profile/${profile.id}`}
+                            className="flex items-center gap-3 hover:opacity-80 active:scale-[0.98] transition-all cursor-pointer group"
+                          >
                             {/* Avatar */}
-                            <div className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-full font-bold text-xs shadow-sm ${
+                            <div className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-full font-bold text-xs shadow-sm group-hover:scale-105 transition-transform duration-200 ${
                               profile.avatarUrl 
                                 ? "bg-gradient-to-tr from-brand-green-700 to-brand-green-500 text-white" 
                                 : "bg-slate-200 text-slate-600 border border-slate-300/40"
@@ -804,14 +807,14 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
                               )}
                             </div>
                             <div>
-                              <h4 className="text-xs font-bold text-slate-900">
+                              <h4 className="text-xs font-bold text-slate-900 group-hover:text-brand-green-700 transition-colors">
                                 {profile.full_name ?? "User"}
                               </h4>
                               <p className="text-[10px] text-slate-400 mt-0.5">
                                 {profile.username ? `@${profile.username}` : ""}
                               </p>
                             </div>
-                          </div>
+                          </Link>
 
                           {/* Relationship actions */}
                           <div className="flex items-center">

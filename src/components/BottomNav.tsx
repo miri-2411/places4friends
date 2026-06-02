@@ -10,10 +10,72 @@ export default function BottomNav() {
   const pathname = usePathname();
   const supabase = createClient();
   const [pendingCount, setPendingCount] = useState(0);
+  const [unseenActivitiesCount, setUnseenActivitiesCount] = useState(0);
 
   useEffect(() => {
     let active = true;
-    let channel: any = null;
+    let friendshipsChannel: any = null;
+    let activitiesChannel: any = null;
+    let currentUserId: string | null = null;
+    let lastSeenActivitiesAt: string | null = null;
+    let acceptedFriendIds: string[] = [];
+    const isActivitiesPath = pathname.startsWith("/activities");
+
+    const markActivitiesAsSeen = async () => {
+      if (!currentUserId) return;
+      const seenAt = new Date().toISOString();
+      const { error } = await supabase.auth.updateUser({
+        data: { last_activities_seen_at: seenAt },
+      });
+
+      if (!error && active) {
+        lastSeenActivitiesAt = seenAt;
+        setUnseenActivitiesCount(0);
+      }
+    };
+
+    const fetchAcceptedFriendIds = async (userId: string) => {
+      const { data, error } = await supabase
+        .from("friendships")
+        .select("sender_id, receiver_id")
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+        .eq("status", "accepted");
+
+      if (error || !active) return [];
+
+      return (data || []).map((friendship) =>
+        friendship.sender_id === userId ? friendship.receiver_id : friendship.sender_id
+      );
+    };
+
+    const fetchUnseenActivitiesCount = async (friendIds: string[]) => {
+      if (!active || friendIds.length === 0 || isActivitiesPath) {
+        if (active) setUnseenActivitiesCount(0);
+        return;
+      }
+
+      if (!lastSeenActivitiesAt) {
+        const { count, error } = await supabase
+          .from("activities")
+          .select("*", { count: "exact", head: true })
+          .in("user_id", friendIds);
+
+        if (!error && count !== null && active) {
+          setUnseenActivitiesCount(count);
+        }
+        return;
+      }
+
+      const { count, error } = await supabase
+        .from("activities")
+        .select("*", { count: "exact", head: true })
+        .in("user_id", friendIds)
+        .gt("created_at", lastSeenActivitiesAt);
+
+      if (!error && count !== null && active) {
+        setUnseenActivitiesCount(count);
+      }
+    };
 
     async function loadPendingCount() {
       try {
@@ -21,8 +83,14 @@ export default function BottomNav() {
         if (!active) return;
         if (!user) {
           setPendingCount(0);
+          setUnseenActivitiesCount(0);
           return;
         }
+        currentUserId = user.id;
+        lastSeenActivitiesAt =
+          typeof user.user_metadata?.last_activities_seen_at === "string"
+            ? user.user_metadata.last_activities_seen_at
+            : null;
 
         const fetchCount = async () => {
           const { count, error } = await supabase
@@ -37,8 +105,15 @@ export default function BottomNav() {
         };
 
         await fetchCount();
+        acceptedFriendIds = await fetchAcceptedFriendIds(user.id);
 
-        channel = supabase
+        if (isActivitiesPath) {
+          await markActivitiesAsSeen();
+        } else {
+          await fetchUnseenActivitiesCount(acceptedFriendIds);
+        }
+
+        friendshipsChannel = supabase
           .channel("pending-friendships")
           .on(
             "postgres_changes",
@@ -49,6 +124,39 @@ export default function BottomNav() {
             },
             () => {
               fetchCount();
+              if (!currentUserId) return;
+              fetchAcceptedFriendIds(currentUserId).then((friendIds) => {
+                acceptedFriendIds = friendIds;
+                if (isActivitiesPath) {
+                  markActivitiesAsSeen();
+                } else {
+                  fetchUnseenActivitiesCount(acceptedFriendIds);
+                }
+              });
+            }
+          )
+          .subscribe();
+
+        activitiesChannel = supabase
+          .channel("friend-activities")
+          .on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "activities",
+            },
+            (payload) => {
+              if (!currentUserId) return;
+              const newActivityUserId = payload.new?.user_id as string | undefined;
+              if (!newActivityUserId || !acceptedFriendIds.includes(newActivityUserId)) return;
+
+              if (isActivitiesPath) {
+                markActivitiesAsSeen();
+                return;
+              }
+
+              fetchUnseenActivitiesCount(acceptedFriendIds);
             }
           )
           .subscribe();
@@ -61,8 +169,11 @@ export default function BottomNav() {
 
     return () => {
       active = false;
-      if (channel) {
-        supabase.removeChannel(channel);
+      if (friendshipsChannel) {
+        supabase.removeChannel(friendshipsChannel);
+      }
+      if (activitiesChannel) {
+        supabase.removeChannel(activitiesChannel);
       }
     };
   }, [pathname, supabase]);
@@ -100,7 +211,14 @@ export default function BottomNav() {
 
         {/* Activities Tab */}
         <Link href="/activities" className={getTabClass("/activities")}>
-          <Activity className={`h-5 w-5 transition-all duration-200 ${isTabActive("/activities") ? "stroke-[2.6]" : "stroke-[2]"}`} />
+          <div className="relative">
+            <Activity className={`h-5 w-5 transition-all duration-200 ${isTabActive("/activities") ? "stroke-[2.6]" : "stroke-[2]"}`} />
+            {unseenActivitiesCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand-green-600 text-[8px] font-extrabold text-white ring-2 ring-white">
+                {unseenActivitiesCount}
+              </span>
+            )}
+          </div>
           <span className="text-[10px] tracking-wide">Aktivitäten</span>
         </Link>
 
