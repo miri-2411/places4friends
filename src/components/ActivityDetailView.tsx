@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -15,6 +15,10 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
+  Sparkles,
+  Check,
+  Plus,
+  X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { authenticatedFetch } from "@/lib/auth/authenticatedFetch";
@@ -62,6 +66,25 @@ interface Friendship {
   receiver_id: string;
   status: "pending" | "accepted";
 }
+
+const CATEGORY_OPTIONS = [
+  "Cafe",
+  "Restaurant",
+  "Freizeitpark",
+  "Bar",
+  "Museum",
+  "Kino",
+  "Park",
+  "Natur",
+  "Sehenswürdigkeit",
+  "Date",
+  "Freizeit",
+  "Piss-Spot",
+  "Bildung",
+  "Einkaufen",
+  "Sport",
+  "Event",
+];
 
 function formatCommentTimestamp(dateStr: string) {
   const date = new Date(dateStr);
@@ -130,6 +153,22 @@ export default function ActivityDetailView({
   const router = useRouter();
   const supabase = createClient();
 
+  const [activityData, setActivityData] = useState(activity);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editReview, setEditReview] = useState("");
+  const [editIsMustSee, setEditIsMustSee] = useState(false);
+  const [editCategories, setEditCategories] = useState<string[]>([]);
+  const [editImageUrls, setEditImageUrls] = useState<string[]>([]);
+  const [editNewFiles, setEditNewFiles] = useState<
+    { id: string; file: File; previewUrl: string }[]
+  >([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [isWishlisted, setIsWishlisted] = useState(initialWishlisted);
   const [friendship, setFriendship] = useState<Friendship | null>(initialFriendship);
@@ -148,6 +187,202 @@ export default function ActivityDetailView({
   const [isSubmittingFriendship, setIsSubmittingFriendship] = useState(false);
 
   const isFriend = isOwner || friendship?.status === "accepted";
+
+  useEffect(() => {
+    const handleOutsideClick = () => setIsMenuOpen(false);
+    window.addEventListener("click", handleOutsideClick);
+    return () => window.removeEventListener("click", handleOutsideClick);
+  }, []);
+
+  const toggleMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsMenuOpen((prev) => !prev);
+  };
+
+  const startEdit = () => {
+    setIsEditing(true);
+    setEditName(activityData.placeName);
+    setEditReview(activityData.description ?? "");
+    setEditIsMustSee(Boolean(activityData.isMustSee));
+    setEditCategories(activityData.categories ?? []);
+    setEditImageUrls(activityData.imageUrls ?? []);
+    setEditNewFiles([]);
+    setActionError(null);
+    setIsMenuOpen(false);
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setEditName("");
+    setEditReview("");
+    setEditIsMustSee(false);
+    setEditCategories([]);
+    editNewFiles.forEach((f) => URL.revokeObjectURL(f.previewUrl));
+    setEditImageUrls([]);
+    setEditNewFiles([]);
+    setActionError(null);
+  };
+
+  const handleEditAddImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    let validFiles = Array.from(files).filter((file) => {
+      if (!file.type.startsWith("image/")) {
+        setActionError("Bitte nur Bilder hochladen.");
+        return false;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setActionError("Bilder dürfen maximal 5 MB groß sein.");
+        return false;
+      }
+      return true;
+    });
+
+    const maxAllowed = 3;
+    const remainingSlots = maxAllowed - editImageUrls.length;
+
+    if (validFiles.length > remainingSlots) {
+      setActionError(`Du kannst maximal ${maxAllowed} Bilder hochladen.`);
+      validFiles = validFiles.slice(0, remainingSlots);
+    }
+
+    if (validFiles.length === 0) return;
+
+    const newEntries = validFiles.map((file) => {
+      const id = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      const previewUrl = URL.createObjectURL(file);
+      return { id, file, previewUrl };
+    });
+
+    setEditNewFiles((prev) => [...prev, ...newEntries]);
+    setEditImageUrls((prev) => [...prev, ...newEntries.map((entry) => entry.previewUrl)]);
+  };
+
+  const handleEditRemoveImage = (urlToRemove: string) => {
+    setEditImageUrls((prev) => prev.filter((url) => url !== urlToRemove));
+
+    const matchingNewFile = editNewFiles.find((f) => f.previewUrl === urlToRemove);
+    if (matchingNewFile) {
+      URL.revokeObjectURL(matchingNewFile.previewUrl);
+      setEditNewFiles((prev) => prev.filter((f) => f.previewUrl !== urlToRemove));
+    }
+  };
+
+  const toggleEditCategory = (category: string) => {
+    setEditCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((item) => item !== category)
+        : [...prev, category]
+    );
+  };
+
+  const saveEdit = async () => {
+    const trimmedName = editName.trim();
+    if (!trimmedName) {
+      setActionError("Name fehlt.");
+      return;
+    }
+
+    setIsSaving(true);
+    setActionError(null);
+    try {
+      const uploadedUrls: string[] = [];
+      if (editNewFiles.length > 0) {
+        for (const entry of editNewFiles) {
+          const fileExt = entry.file.name.split(".").pop();
+          const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+          const { error: uploadError } = await supabase.storage
+            .from("activity-images")
+            .upload(fileName, entry.file);
+
+          if (uploadError) {
+            throw new Error(`Fehler beim Hochladen eines Bildes: ${uploadError.message}`);
+          }
+
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from("activity-images").getPublicUrl(fileName);
+          uploadedUrls.push(publicUrl);
+        }
+      }
+
+      const existingUrls = editImageUrls.filter((url) => !url.startsWith("blob:"));
+      const finalImageUrls = [...existingUrls, ...uploadedUrls];
+
+      const originalUrls = activityData.imageUrls || [];
+      const deletedUrls = originalUrls.filter((url) => !finalImageUrls.includes(url));
+      if (deletedUrls.length > 0) {
+        const fileNames = deletedUrls.map((url) => {
+          const parts = url.split("/");
+          return parts[parts.length - 1];
+        });
+        supabase.storage
+          .from("activity-images")
+          .remove(fileNames)
+          .catch((err) => console.error("Failed to delete removed images from storage", err));
+      }
+
+      const response = await authenticatedFetch(`/api/recommendations/${activityData.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          placeName: trimmedName,
+          description: editReview.trim() || null,
+          isMustSee: editIsMustSee,
+          categories: editCategories,
+          imageUrls: finalImageUrls,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error ?? "Speichern fehlgeschlagen.");
+      }
+
+      setActivityData((prev) => ({
+        ...prev,
+        placeName: trimmedName,
+        description: editReview.trim(),
+        isMustSee: editIsMustSee,
+        categories: editCategories,
+        imageUrls: finalImageUrls,
+      }));
+
+      editNewFiles.forEach((f) => URL.revokeObjectURL(f.previewUrl));
+      cancelEdit();
+      router.refresh();
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Speichern fehlgeschlagen."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const deleteActivity = async () => {
+    setIsDeleting(true);
+    setActionError(null);
+    try {
+      const response = await authenticatedFetch(`/api/recommendations/${activityData.id}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error ?? "Löschen fehlgeschlagen.");
+      }
+      setDeleteConfirmOpen(false);
+      router.push("/profile");
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Löschen fehlgeschlagen."
+      );
+      setDeleteConfirmOpen(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Reload comments helper
   const reloadComments = async () => {
@@ -366,7 +601,7 @@ export default function ActivityDetailView({
           <ArrowLeft className="h-5 w-5" />
         </button>
         <h1 className="text-sm font-bold text-slate-900 truncate max-w-[200px]">
-          {isFriend ? activity.placeName : "Privater Ort"}
+          {isFriend ? activityData.placeName : "Privater Ort"}
         </h1>
         <div className="w-8" />
       </header>
@@ -428,16 +663,167 @@ export default function ActivityDetailView({
           /* Public/Owner View using ActivityCard for exact design replication */
           <div className="pb-12">
             <ActivityCard
-              id={activity.id}
-              placeName={activity.placeName}
-              latitude={activity.latitude}
-              longitude={activity.longitude}
-              isMustSee={activity.isMustSee}
-              description={activity.description}
-              categories={activity.categories}
-              timestamp={activity.timestamp}
-              imageUrls={activity.imageUrls}
+              id={activityData.id}
+              placeName={activityData.placeName}
+              latitude={activityData.latitude}
+              longitude={activityData.longitude}
+              isMustSee={activityData.isMustSee}
+              description={activityData.description}
+              categories={activityData.categories}
+              timestamp={activityData.timestamp}
+              imageUrls={activityData.imageUrls}
               friend={creator}
+              isEditing={isEditing}
+              editForm={
+                <div className="space-y-2">
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-brand-green-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setEditIsMustSee(!editIsMustSee)}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold transition-all ${
+                      editIsMustSee
+                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                        : "border-slate-200 bg-white text-slate-500"
+                    }`}
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    Must See
+                  </button>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CATEGORY_OPTIONS.map((category) => {
+                      const isSelected = editCategories.includes(category);
+                      return (
+                        <button
+                          key={category}
+                          type="button"
+                          onClick={() => toggleEditCategory(category)}
+                          className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold transition-all cursor-pointer ${
+                            isSelected
+                              ? "border-brand-green-600 bg-brand-green-50 text-brand-green-800"
+                              : "border-slate-200 bg-white text-slate-600"
+                          }`}
+                        >
+                          {category}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <textarea
+                    value={editReview}
+                    onChange={(e) => setEditReview(e.target.value)}
+                    rows={3}
+                    className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-brand-green-500"
+                  />
+                  <div className="mt-3 space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Bilder bearbeiten
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {editImageUrls.map((url, idx) => (
+                        <div
+                          key={idx}
+                          className="relative h-16 w-16 rounded-xl border border-slate-200 overflow-hidden bg-slate-50 flex-shrink-0"
+                        >
+                          <img src={url} alt="Empfehlungsbild" className="h-full w-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => handleEditRemoveImage(url)}
+                            className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900/80 text-white hover:bg-slate-900 transition-all cursor-pointer shadow-md"
+                            title="Bild löschen"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                      {editImageUrls.length < 3 && (
+                        <label className="flex h-16 w-16 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-350 bg-slate-50/50 hover:bg-slate-50 transition-all hover:border-brand-green-500 group">
+                          <Plus className="h-4 w-4 text-slate-450 group-hover:text-brand-green-600 transition-colors" />
+                          <span className="text-[8px] font-semibold text-slate-400 group-hover:text-brand-green-600 transition-colors mt-0.5">
+                            Hinzufügen
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={handleEditAddImage}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                  {actionError && (
+                    <div className="rounded-lg border border-red-100 bg-red-50 px-2.5 py-2 text-[11px] text-red-700">
+                      {actionError}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-end gap-2 pt-3 mt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={cancelEdit}
+                      className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition-all cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Abbrechen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void saveEdit()}
+                      disabled={isSaving}
+                      className="inline-flex items-center gap-1 rounded-xl bg-brand-green-700 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-brand-green-700/10 active:scale-[0.98] transition-all disabled:opacity-60 cursor-pointer"
+                    >
+                      {isSaving ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5" />
+                      )}
+                      Speichern
+                    </button>
+                  </div>
+                </div>
+              }
+              actions={
+                isOwner && !isEditing ? (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={toggleMenu}
+                      className="flex items-center justify-center p-1 text-slate-400 hover:text-slate-700 active:scale-95 transition-all cursor-pointer"
+                      title="Optionen"
+                    >
+                      <MoreVertical className="h-5 w-5" />
+                    </button>
+                    {isMenuOpen && (
+                      <div className="absolute right-0 mt-1 w-32 origin-top-right rounded-xl border border-slate-100 bg-white p-1 shadow-lg ring-1 ring-black/5 z-30 animate-in fade-in slide-in-from-top-1 duration-100">
+                        <button
+                          type="button"
+                          onClick={() => startEdit()}
+                          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 active:scale-98 transition-all cursor-pointer text-left"
+                        >
+                          <Pencil className="h-3 w-3 text-slate-400" />
+                          Bearbeiten
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteConfirmOpen(true);
+                            setIsMenuOpen(false);
+                          }}
+                          disabled={isDeleting}
+                          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[11px] font-semibold text-red-600 hover:bg-red-50 active:scale-98 transition-all cursor-pointer text-left disabled:opacity-60"
+                        >
+                          <Trash2 className="h-3 w-3 text-red-400" />
+                          Löschen
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : null
+              }
               bottomLeftActions={
                 <>
                   {/* Bookmark Button */}
@@ -656,6 +1042,21 @@ export default function ActivityDetailView({
           void handleDeleteComment(id);
         }}
       />
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        title="Empfehlung löschen?"
+        message="Möchtest du diese Empfehlung wirklich unwiderruflich löschen?"
+        isLoading={isDeleting}
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={() => void deleteActivity()}
+      />
+
+      {actionError && !isEditing && (
+        <div className="fixed bottom-24 left-4 right-4 z-20 mx-auto max-w-lg rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700 shadow-sm">
+          {actionError}
+        </div>
+      )}
     </div>
   );
 }

@@ -26,6 +26,15 @@ import {
   selectPlacesForOverview,
   type MapViewport,
 } from "@/lib/mapViewport";
+import { getUserColorClass } from "@/lib/mapNetwork";
+import {
+  filterOverviewPins,
+  mergeMapPlace,
+  type MapOverviewPin,
+  type MapPlace,
+  type MapPlaceDetails,
+  type MapPlacePin,
+} from "@/lib/mapPlaces";
 import Toast from "@/components/Toast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
@@ -37,28 +46,13 @@ interface UserProfile {
   avatarUrl?: string | null;
 }
 
-interface Place {
-  id: string;
-  userId: string;
-  userName: string;
-  userInitials: string;
-  userColor: string;
-  userAvatarUrl?: string | null;
-  name: string;
-  latitude: number;
-  longitude: number;
-  isMustSee: boolean;
-  review: string;
-  categories: string[];
-  imageUrls?: string[];
-  createdAt: string;
-}
+type ClusterablePin = Pick<MapPlacePin, "id" | "latitude" | "longitude"> & Partial<MapPlacePin>;
 
 interface ClusteredPlaceGroup {
   id: string;
   latitude: number;
   longitude: number;
-  places: Place[];
+  places: ClusterablePin[];
 }
 
 interface ActivityComment {
@@ -81,27 +75,8 @@ interface SearchSuggestion {
   isRecommendation: boolean;
   isMustSee?: boolean;
   userName?: string;
-  placeData?: Place;
+  placeData?: MapPlacePin;
   type?: string;
-}
-
-const COLORS = [
-  "bg-emerald-600",
-  "bg-rose-500",
-  "bg-amber-600",
-  "bg-blue-600",
-  "bg-indigo-600",
-  "bg-violet-600",
-  "bg-fuchsia-600",
-  "bg-cyan-600",
-];
-
-function getUserColorClass(userId: string): string {
-  let sum = 0;
-  for (let i = 0; i < userId.length; i++) {
-    sum += userId.charCodeAt(i);
-  }
-  return COLORS[sum % COLORS.length];
 }
 
 const MAP_STYLES = [
@@ -139,7 +114,7 @@ function projectToWorldPixel(longitude: number, latitude: number, zoom: number) 
   return { x, y };
 }
 
-function clusterPlacesByScreenOverlap(places: Place[], zoom: number): ClusteredPlaceGroup[] {
+function clusterPlacesByScreenOverlap(places: ClusterablePin[], zoom: number): ClusteredPlaceGroup[] {
   if (places.length === 0) return [];
 
   const clusterZoom = Math.round(zoom * 2) / 2;
@@ -176,7 +151,7 @@ function clusterPlacesByScreenOverlap(places: Place[], zoom: number): ClusteredP
     }
   }
 
-  const groups = new globalThis.Map<number, Place[]>();
+  const groups = new globalThis.Map<number, ClusterablePin[]>();
   points.forEach((point, index) => {
     const root = findRoot(index);
     const existing = groups.get(root);
@@ -231,7 +206,7 @@ function truncatePopupText(text: string, maxLength = POPUP_REVIEW_MAX_LENGTH): s
 }
 
 function placesFitInViewport(
-  places: Place[],
+  places: ClusterablePin[],
   zoom: number,
   mapWidth: number,
   mapHeight: number,
@@ -252,7 +227,7 @@ function placesFitInViewport(
   return spanX <= availableWidth && spanY <= availableHeight;
 }
 
-function findMinZoomToSplitCluster(places: Place[], currentZoom: number): number | null {
+function findMinZoomToSplitCluster(places: ClusterablePin[], currentZoom: number): number | null {
   const startZoom = Math.max(currentZoom + 0.5, 0);
   for (let zoom = startZoom; zoom <= CLUSTER_EXPAND_MAX_ZOOM; zoom += 0.5) {
     if (clusterPlacesByScreenOverlap(places, zoom).length > 1) {
@@ -263,7 +238,7 @@ function findMinZoomToSplitCluster(places: Place[], currentZoom: number): number
 }
 
 function findOptimalClusterExpandZoom(
-  places: Place[],
+  places: ClusterablePin[],
   currentZoom: number,
   mapWidth: number,
   mapHeight: number
@@ -293,7 +268,9 @@ function findOptimalClusterExpandZoom(
   return Math.round(zoomWithBuffer * 2) / 2;
 }
 
-function getClusterBounds(places: Place[]): [[number, number], [number, number]] {
+function getClusterBounds(
+  places: Array<{ latitude: number; longitude: number }>
+): [[number, number], [number, number]] {
   const lngs = places.map((place) => place.longitude);
   const lats = places.map((place) => place.latitude);
   let minLng = Math.min(...lngs);
@@ -322,10 +299,14 @@ export default function MapViewContent() {
   const supabase = createClient();
   const searchParams = useSearchParams();
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isSessionLoading, setIsSessionLoading] = useState(true);
+  const [isPinsRefreshing, setIsPinsRefreshing] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [friends, setFriends] = useState<UserProfile[]>([]);
-  const [places, setPlaces] = useState<Place[]>([]);
+  const [placePins, setPlacePins] = useState<MapPlacePin[]>([]);
+  const [overviewPins, setOverviewPins] = useState<MapOverviewPin[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  const [friendPlaceCounts, setFriendPlaceCounts] = useState<Record<string, number>>({});
 
   const [viewState, setViewState] = useState<MapViewport>({
     longitude: FALLBACK_VIEWPORT.longitude,
@@ -336,7 +317,8 @@ export default function MapViewContent() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [recommendationFilter, setRecommendationFilter] = useState<"all" | "must-see">("all");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<MapPlace | null>(null);
+  const [isPlaceDetailLoading, setIsPlaceDetailLoading] = useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
   const [activeImageUrl, setActiveImageUrl] = useState<string | null>(null);
@@ -368,7 +350,31 @@ export default function MapViewContent() {
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const viewStateRef = useRef(viewState);
   const viewportResolvedRef = useRef(false);
+  const mapReadyRef = useRef(false);
+  const pinsFetchAbortRef = useRef<AbortController | null>(null);
+  const placeDetailsCacheRef = useRef(new globalThis.Map<string, MapPlaceDetails>());
+  const deepLinkPlaceRef = useRef<MapPlace | null>(null);
   viewStateRef.current = viewState;
+
+  const mapFilterParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (selectedUserId) params.set("userId", selectedUserId);
+    if (recommendationFilter === "must-see") params.set("mustSee", "true");
+    if (selectedCategories.length > 0) {
+      params.set("categories", selectedCategories.join(","));
+    }
+    return params;
+  }, [selectedUserId, recommendationFilter, selectedCategories]);
+
+  const filteredOverviewPins = useMemo(
+    () =>
+      filterOverviewPins(overviewPins, {
+        userId: selectedUserId,
+        mustSee: recommendationFilter === "must-see",
+        categories: selectedCategories,
+      }),
+    [overviewPins, selectedUserId, recommendationFilter, selectedCategories]
+  );
 
   const persistViewportDebounced = useRef(
     debounce((userId: string, viewport: MapViewport) => {
@@ -384,32 +390,90 @@ export default function MapViewContent() {
 
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
+  const fetchViewportPins = useCallback(async () => {
+    if (!user || !mapReadyRef.current) return;
+
+    const map = mapRef.current?.getMap?.() ?? mapRef.current;
+    if (!map?.getBounds) return;
+
+    const bounds = map.getBounds();
+    const params = new URLSearchParams(mapFilterParams);
+    params.set("north", String(bounds.getNorth()));
+    params.set("south", String(bounds.getSouth()));
+    params.set("east", String(bounds.getEast()));
+    params.set("west", String(bounds.getWest()));
+
+    pinsFetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    pinsFetchAbortRef.current = controller;
+
+    setIsPinsRefreshing(true);
+    try {
+      const response = await authenticatedFetch(`/api/map/pins?${params.toString()}`, {
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error("Pins konnten nicht geladen werden.");
+      const data = (await response.json()) as { pins: MapPlacePin[] };
+      setPlacePins(data.pins ?? []);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      console.error("Error loading viewport pins:", error);
+    } finally {
+      if (!controller.signal.aborted) {
+        setIsPinsRefreshing(false);
+      }
+    }
+  }, [user, mapFilterParams]);
+
+  const loadPlaceDetails = useCallback(async (pin: MapPlacePin) => {
+    const cached = placeDetailsCacheRef.current.get(pin.id);
+    if (cached) {
+      setSelectedPlace(mergeMapPlace(pin, cached));
+      setIsPlaceDetailLoading(false);
+      return;
+    }
+
+    setIsPlaceDetailLoading(true);
+    try {
+      const response = await authenticatedFetch(`/api/map/activities/${pin.id}`);
+      if (!response.ok) throw new Error("Details konnten nicht geladen werden.");
+      const place = (await response.json()) as MapPlace;
+      const details: MapPlaceDetails = {
+        review: place.review,
+        categories: place.categories,
+        imageUrls: place.imageUrls,
+        createdAt: place.createdAt,
+      };
+      placeDetailsCacheRef.current.set(pin.id, details);
+      setSelectedPlace((prev) => (prev?.id === pin.id ? place : prev));
+    } catch (error) {
+      console.error("Error loading place details:", error);
+    } finally {
+      setIsPlaceDetailLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    async function loadMapData() {
+    async function loadMapSession() {
       try {
-        setIsLoading(true);
+        setIsSessionLoading(true);
         const {
           data: { user: authUser },
         } = await supabase.auth.getUser();
 
         if (!authUser) {
           setUser(null);
-          setPlaces([]);
+          setPlacePins([]);
+          setOverviewPins([]);
           setFriends([]);
-          setIsLoading(false);
+          setCategoryOptions([]);
+          setFriendPlaceCounts({});
+          setIsSessionLoading(false);
           return;
         }
 
         setUser(authUser);
 
-        // Fetch own profile
-        const { data: ownProfile } = await supabase
-          .from("profiles")
-          .select("id, username, full_name, avatar_url")
-          .eq("id", authUser.id)
-          .single();
-
-        // Fetch accepted friendships
         const { data: friendships } = await supabase
           .from("friendships")
           .select(`
@@ -449,69 +513,18 @@ export default function MapViewContent() {
 
         setFriends(loadedFriends);
 
-        // Profile lookup map
-        const profileMap = new globalThis.Map<string, { name: string; initials: string; color: string; avatarUrl?: string | null }>();
-        const ownName = ownProfile?.full_name ?? ownProfile?.username ?? "Ich";
-        const ownInitials = ownName
-          .split(" ")
-          .map((n: string) => n[0])
-          .slice(0, 2)
-          .join("")
-          .toUpperCase() || "?";
+        const metaResponse = await authenticatedFetch("/api/map/meta");
+        if (metaResponse.ok) {
+          const meta = (await metaResponse.json()) as {
+            categories: string[];
+            friendPlaceCounts: Record<string, number>;
+            overviewPins: MapOverviewPin[];
+          };
+          setCategoryOptions(meta.categories ?? []);
+          setFriendPlaceCounts(meta.friendPlaceCounts ?? {});
+          setOverviewPins(meta.overviewPins ?? []);
+        }
 
-        profileMap.set(authUser.id, {
-          name: ownName,
-          initials: ownInitials,
-          color: getUserColorClass(authUser.id),
-          avatarUrl: getAvatarPublicUrl(ownProfile?.avatar_url),
-        });
-
-        loadedFriends.forEach((f) => {
-          profileMap.set(f.id, {
-            name: f.name,
-            initials: f.initials,
-            color: f.color,
-            avatarUrl: f.avatarUrl,
-          });
-        });
-
-        // Fetch activities for self and friends
-        const allowedUserIds = [authUser.id, ...loadedFriends.map((f) => f.id)];
-        const { data: activities } = await supabase
-          .from("activities")
-          .select("id, user_id, place_id, place_name, place_address, latitude, longitude, is_superlike, description, categories, image_urls, created_at")
-          .in("user_id", allowedUserIds);
-
-        const loadedPlaces = (activities || [])
-          .filter((act) => act.latitude !== null && act.longitude !== null)
-          .map((act) => {
-            const prof = profileMap.get(act.user_id) || {
-              name: "Unbekannt",
-              initials: "?",
-              color: "bg-slate-500",
-              avatarUrl: null,
-            };
-            return {
-              id: act.id,
-              userId: act.user_id,
-              userName: prof.name,
-              userInitials: prof.initials,
-              userColor: prof.color,
-              userAvatarUrl: prof.avatarUrl ?? null,
-              name: act.place_name,
-              latitude: act.latitude as number,
-              longitude: act.longitude as number,
-              isMustSee: act.is_superlike,
-              review: act.description || "",
-              categories: Array.isArray(act.categories) ? act.categories : [],
-              imageUrls: Array.isArray(act.image_urls) ? act.image_urls : [],
-              createdAt: act.created_at,
-            };
-          });
-
-        setPlaces(loadedPlaces);
-
-        // Fetch user's wishlist
         const { data: wishlistEntries } = await supabase
           .from("wishlist")
           .select("activity_id")
@@ -520,36 +533,49 @@ export default function MapViewContent() {
 
         const placeIdParam = new URLSearchParams(window.location.search).get("placeId");
         if (placeIdParam) {
-          const matched = loadedPlaces.find((p) => p.id === placeIdParam);
-          if (matched) {
-            setSelectedPlace(matched);
+          const detailResponse = await authenticatedFetch(`/api/map/activities/${placeIdParam}`);
+          if (detailResponse.ok) {
+            const place = (await detailResponse.json()) as MapPlace;
+            deepLinkPlaceRef.current = place;
+            setSelectedPlace(place);
+            placeDetailsCacheRef.current.set(place.id, {
+              review: place.review,
+              categories: place.categories,
+              imageUrls: place.imageUrls,
+              createdAt: place.createdAt,
+            });
           }
         }
       } catch (err) {
-        console.error("Error loading map data:", err);
+        console.error("Error loading map session:", err);
       } finally {
-        setIsLoading(false);
+        setIsSessionLoading(false);
       }
     }
 
-    loadMapData();
+    loadMapSession();
   }, []);
 
   useEffect(() => {
-    if (isLoading || viewportResolvedRef.current) return;
+    if (isSessionLoading || viewportResolvedRef.current) return;
 
     async function initViewport() {
       try {
+        const deepLink = deepLinkPlaceRef.current;
         const viewport = await resolveInitialViewport({
           userId: user?.id ?? null,
           urlLat: searchParams.get("lat"),
           urlLng: searchParams.get("lng"),
           placeId: searchParams.get("placeId"),
-          places: places.map((p) => ({
-            id: p.id,
-            latitude: p.latitude,
-            longitude: p.longitude,
-          })),
+          places: deepLink
+            ? [
+                {
+                  id: deepLink.id,
+                  latitude: deepLink.latitude,
+                  longitude: deepLink.longitude,
+                },
+              ]
+            : [],
           fetchApproximateGeo: fetchApproximateGeoFromApi,
         });
 
@@ -576,9 +602,23 @@ export default function MapViewContent() {
     }
 
     initViewport();
-  }, [isLoading, user, places, searchParams]);
+  }, [isSessionLoading, user, searchParams]);
+
+  useEffect(() => {
+    if (isSessionLoading || !user || !mapReadyRef.current) return;
+    void fetchViewportPins();
+  }, [isSessionLoading, user, mapFilterParams, fetchViewportPins]);
+
+  const handleMapLoad = useCallback(() => {
+    mapReadyRef.current = true;
+    if (!isSessionLoading && user) {
+      void fetchViewportPins();
+    }
+  }, [isSessionLoading, user, fetchViewportPins]);
 
   const handleMoveEnd = useCallback(() => {
+    void fetchViewportPins();
+
     if (!user?.id) return;
     void getGeolocationPermission().then((permission) => {
       if (permission === "granted") return;
@@ -588,12 +628,10 @@ export default function MapViewContent() {
         zoom: viewStateRef.current.zoom,
       });
     });
-  }, [user, persistViewportDebounced]);
+  }, [user, persistViewportDebounced, fetchViewportPins]);
 
   // Handle zoom and select from URL search params reactively
   useEffect(() => {
-    if (places.length === 0) return;
-
     const latParam = searchParams.get("lat");
     const lngParam = searchParams.get("lng");
     const placeIdParam = searchParams.get("placeId");
@@ -609,95 +647,94 @@ export default function MapViewContent() {
           zoom: ZOOM_DETAIL,
         }));
       }
-    } else if (placeIdParam) {
-      const matched = places.find((p) => p.id === placeIdParam);
-      if (matched) {
-        setViewState((prev) => ({
-          ...prev,
-          latitude: matched.latitude,
-          longitude: matched.longitude,
-          zoom: ZOOM_DETAIL,
-        }));
-      }
+    } else if (placeIdParam && deepLinkPlaceRef.current?.id === placeIdParam) {
+      const matched = deepLinkPlaceRef.current;
+      setViewState((prev) => ({
+        ...prev,
+        latitude: matched.latitude,
+        longitude: matched.longitude,
+        zoom: ZOOM_DETAIL,
+      }));
+      setSelectedPlace(matched);
     }
-
-    if (placeIdParam) {
-      const matched = places.find((p) => p.id === placeIdParam);
-      if (matched) {
-        setSelectedPlace(matched);
-      }
-    }
-  }, [searchParams, places]);
-
-  const categoryOptions = useMemo(() => {
-    const unique = new Set<string>();
-    places.forEach((place) => {
-      place.categories.forEach((category) => unique.add(category));
-    });
-    return Array.from(unique).sort((a, b) => a.localeCompare(b));
-  }, [places]);
-
-  const filteredPlaces = useMemo(() => {
-    let next = places;
-    if (selectedUserId) {
-      next = next.filter((place) => place.userId === selectedUserId);
-    }
-    if (recommendationFilter === "must-see") {
-      next = next.filter((place) => place.isMustSee);
-    }
-    if (selectedCategories.length > 0) {
-      next = next.filter((place) =>
-        place.categories.some((category) => selectedCategories.includes(category))
-      );
-    }
-    return next;
-  }, [places, recommendationFilter, selectedCategories, selectedUserId]);
+  }, [searchParams]);
 
   const clusteredPlaceGroups = useMemo<ClusteredPlaceGroup[]>(
-    () => clusterPlacesByScreenOverlap(filteredPlaces, viewState.zoom),
-    [filteredPlaces, viewState.zoom]
+    () => clusterPlacesByScreenOverlap(placePins, viewState.zoom),
+    [placePins, viewState.zoom]
   );
 
   useEffect(() => {
     if (!selectedPlace) return;
-    const isVisible = filteredPlaces.some((place) => place.id === selectedPlace.id);
-    if (!isVisible) {
-      setSelectedPlace(null);
-    }
-  }, [filteredPlaces, selectedPlace]);
 
-  // Search effect to search places (both local recommendations and global geocoding API)
+    if (selectedUserId && selectedPlace.userId !== selectedUserId) {
+      setSelectedPlace(null);
+      return;
+    }
+
+    if (recommendationFilter === "must-see" && !selectedPlace.isMustSee) {
+      setSelectedPlace(null);
+      return;
+    }
+
+    if (selectedCategories.length > 0) {
+      const overviewPin = overviewPins.find((pin) => pin.id === selectedPlace.id);
+      if (
+        overviewPin &&
+        !overviewPin.categories.some((category) => selectedCategories.includes(category))
+      ) {
+        setSelectedPlace(null);
+      }
+    }
+  }, [
+    selectedUserId,
+    recommendationFilter,
+    selectedCategories,
+    selectedPlace,
+    overviewPins,
+  ]);
+
+  // Search effect: recommendations via API + global geocoding
   useEffect(() => {
-    if (!searchQuery.trim()) {
+    if (!searchQuery.trim() || !user) {
       setSuggestions([]);
       setIsSearching(false);
       return;
     }
 
-    const queryLower = searchQuery.toLowerCase();
-    const localMatches = filteredPlaces
-      .filter(
-        (p) =>
-          p.name.toLowerCase().includes(queryLower) ||
-          p.review.toLowerCase().includes(queryLower) ||
-          (p.categories && p.categories.some((c) => c.toLowerCase().includes(queryLower)))
-      )
-      .map((p) => ({
-        id: `local-${p.id}`,
-        name: p.name,
-        address: p.review ? (p.review.length > 60 ? p.review.slice(0, 60) + "..." : p.review) : "Empfohlener Ort",
-        latitude: p.latitude,
-        longitude: p.longitude,
-        isRecommendation: true,
-        isMustSee: p.isMustSee,
-        userName: p.userName,
-        placeData: p,
-        type: "poi",
-      }));
-
     setIsSearching(true);
 
     const delayDebounce = setTimeout(async () => {
+      let localMatches: SearchSuggestion[] = [];
+
+      try {
+        const recommendationParams = new URLSearchParams(mapFilterParams);
+        recommendationParams.set("q", searchQuery.trim());
+        const recommendationRes = await authenticatedFetch(
+          `/api/map/search?${recommendationParams.toString()}`
+        );
+
+        if (recommendationRes.ok) {
+          const recommendationData = (await recommendationRes.json()) as {
+            results: Array<{ pin: MapPlacePin; address: string }>;
+          };
+          localMatches = (recommendationData.results || []).map((entry) => ({
+            id: `local-${entry.pin.id}`,
+            name: entry.pin.name,
+            address: entry.address,
+            latitude: entry.pin.latitude,
+            longitude: entry.pin.longitude,
+            isRecommendation: true,
+            isMustSee: entry.pin.isMustSee,
+            userName: entry.pin.userName,
+            placeData: entry.pin,
+            type: "poi",
+          }));
+        }
+      } catch (err) {
+        console.error("Error fetching recommendation search:", err);
+      }
+
       try {
         let url = `/api/places/search?query=${encodeURIComponent(searchQuery)}`;
         if (viewState.latitude && viewState.longitude) {
@@ -717,8 +754,7 @@ export default function MapViewContent() {
             type: item.type,
           }));
 
-          const combined = [...localMatches, ...globalResults];
-          setSuggestions(combined);
+          setSuggestions([...localMatches, ...globalResults]);
         } else {
           setSuggestions(localMatches);
         }
@@ -731,7 +767,7 @@ export default function MapViewContent() {
     }, 300);
 
     return () => clearTimeout(delayDebounce);
-  }, [searchQuery, filteredPlaces, viewState.latitude, viewState.longitude]);
+  }, [searchQuery, user, mapFilterParams, viewState.latitude, viewState.longitude]);
 
   // Click outside search bar to close suggestions and filter menu
   useEffect(() => {
@@ -783,7 +819,7 @@ export default function MapViewContent() {
       }));
 
       if (suggestion.isRecommendation && suggestion.placeData) {
-        setSelectedPlace(suggestion.placeData);
+        void handlePlaceSelect(suggestion.placeData);
       } else {
         setSelectedPlace(null);
       }
@@ -841,8 +877,10 @@ export default function MapViewContent() {
   };
 
   const handlePlaceSelect = useCallback(
-    (place: Place) => {
-      setSelectedPlace(place);
+    (pin: MapPlacePin) => {
+      const cached = placeDetailsCacheRef.current.get(pin.id);
+      setSelectedPlace(mergeMapPlace(pin, cached));
+      void loadPlaceDetails(pin);
 
       const map = mapRef.current?.getMap?.() ?? mapRef.current;
       if (!map) return;
@@ -851,9 +889,9 @@ export default function MapViewContent() {
         CLUSTER_EXPAND_MAX_ZOOM,
         Math.max(viewState.zoom, ZOOM_DETAIL)
       );
-      const bounds = getClusterBounds([place]);
-      const centerLng = place.longitude;
-      const centerLat = place.latitude;
+      const bounds = getClusterBounds([pin]);
+      const centerLng = pin.longitude;
+      const centerLat = pin.latitude;
 
       map.fitBounds(bounds, {
         padding: SINGLE_PIN_SELECT_MAP_PADDING,
@@ -869,7 +907,7 @@ export default function MapViewContent() {
         zoom: Math.max(prev.zoom, targetZoom),
       }));
     },
-    [viewState.zoom]
+    [viewState.zoom, loadPlaceDetails]
   );
 
   const handleClusterExpand = useCallback(
@@ -908,7 +946,7 @@ export default function MapViewContent() {
     [viewState.zoom]
   );
 
-  const fitMapToUnclusteredPlaces = useCallback((placesToFit: Place[]) => {
+  const fitMapToUnclusteredPlaces = useCallback((placesToFit: MapPlacePin[]) => {
     if (placesToFit.length === 0) return;
 
     const map = mapRef.current?.getMap?.() ?? mapRef.current;
@@ -961,7 +999,7 @@ export default function MapViewContent() {
       fallbackViewport: viewStateRef.current,
     });
 
-    const placesToFit = selectPlacesForOverview(filteredPlaces, anchor);
+    const placesToFit = selectPlacesForOverview(filteredOverviewPins, anchor);
     const container = map.getContainer?.() as HTMLElement | undefined;
     const mapWidth = container?.clientWidth ?? window.innerWidth;
     const mapHeight = container?.clientHeight ?? window.innerHeight;
@@ -1015,7 +1053,7 @@ export default function MapViewContent() {
       longitude: centerLng,
       zoom: targetZoom,
     }));
-  }, [filteredPlaces, userLocation]);
+  }, [filteredOverviewPins, userLocation]);
 
   const scheduleFitAllOverview = useCallback(() => {
     requestAnimationFrame(() => {
@@ -1132,7 +1170,7 @@ export default function MapViewContent() {
     setSelectedUserId((prev) => {
       const next = prev === userId ? null : userId;
       if (next) {
-        const friendHasPlaces = places.some((place) => place.userId === next);
+        const friendHasPlaces = (friendPlaceCounts[next] ?? 0) > 0;
         const friend = friends.find((f) => f.id === next);
         if (!friendHasPlaces && friend) {
           setNoPlacesToast(`${friend.name} hat noch keine Orte empfohlen.`);
@@ -1151,15 +1189,28 @@ export default function MapViewContent() {
   };
 
   useEffect(() => {
-    if (!selectedUserId || filteredPlaces.length === 0) return;
+    if (!selectedUserId || filteredOverviewPins.length === 0) return;
 
     const frame = requestAnimationFrame(() => {
-      fitMapToUnclusteredPlaces(filteredPlaces);
+      fitMapToUnclusteredPlaces(
+        filteredOverviewPins.map((pin) => ({
+          id: pin.id,
+          userId: pin.userId,
+          userName: "",
+          userInitials: "",
+          userColor: "",
+          userAvatarUrl: null,
+          name: "",
+          latitude: pin.latitude,
+          longitude: pin.longitude,
+          isMustSee: pin.isMustSee,
+        }))
+      );
     });
     return () => cancelAnimationFrame(frame);
   }, [
     selectedUserId,
-    filteredPlaces,
+    filteredOverviewPins,
     fitMapToUnclusteredPlaces,
     recommendationFilter,
     selectedCategories,
@@ -1275,11 +1326,20 @@ export default function MapViewContent() {
   return (
     <div className="relative h-full w-full flex-1 flex flex-col">
       {/* Subtle Data Fetching Spinner Overlay */}
-      {isLoading && (
+      {isSessionLoading && (
         <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-[1px] z-30 flex items-center justify-center pointer-events-none">
           <div className="bg-white/90 px-4 py-2.5 rounded-full shadow-lg border border-slate-100 flex items-center gap-2 pointer-events-auto">
             <Loader2 className="h-4 w-4 animate-spin text-brand-green-700" />
-            <span className="text-xs font-semibold text-slate-700">Karte wird aktualisiert...</span>
+            <span className="text-xs font-semibold text-slate-700">Karte wird geladen...</span>
+          </div>
+        </div>
+      )}
+
+      {isPinsRefreshing && !isSessionLoading && user && (
+        <div className="pointer-events-none absolute top-[7.5rem] left-4 z-[18]">
+          <div className="flex items-center gap-1.5 rounded-full border border-slate-100 bg-white/95 px-2.5 py-1 shadow-md backdrop-blur-md">
+            <Loader2 className="h-3 w-3 animate-spin text-brand-green-700" />
+            <span className="text-[10px] font-semibold text-slate-600">Pins werden geladen</span>
           </div>
         </div>
       )}
@@ -1291,7 +1351,7 @@ export default function MapViewContent() {
       )}
 
       {/* Floating Search Bar */}
-      {!isLoading && (
+      {!isSessionLoading && (
         <div
           ref={searchContainerRef}
           className={`absolute left-4 right-4 z-20 ${locationToast ? "top-[4.5rem]" : "top-4"}`}
@@ -1465,7 +1525,7 @@ export default function MapViewContent() {
       )}
 
       {/* Floating Friends Filter Bar or Add Friends Button */}
-      {!isLoading && (
+      {!isSessionLoading && (
         user && friends.length > 0 ? (
           <div className="absolute left-0 right-0 z-10 top-[72px] flex flex-nowrap gap-2 overflow-x-auto no-scrollbar px-4 py-1">
             <button
@@ -1523,7 +1583,7 @@ export default function MapViewContent() {
         )
       )}
 
-      {noPlacesToast && !isLoading && user && friends.length > 0 && (
+      {noPlacesToast && !isSessionLoading && user && friends.length > 0 && (
         <div className="pointer-events-none absolute top-[112px] left-4 right-4 z-[15]">
           <Toast
             message={noPlacesToast}
@@ -1541,6 +1601,7 @@ export default function MapViewContent() {
           {...viewState}
           onMove={(evt) => setViewState(evt.viewState)}
           onMoveEnd={handleMoveEnd}
+          onLoad={handleMapLoad}
           style={{ width: "100%", height: "100%" }}
           mapStyle={currentStyle}
           mapboxAccessToken={mapboxToken}
@@ -1608,7 +1669,7 @@ export default function MapViewContent() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handlePlaceSelect(place);
+                    handlePlaceSelect(place as MapPlacePin);
                   }}
                   className="group relative flex flex-col items-center cursor-pointer transition-transform duration-200 hover:scale-110 active:scale-95"
                 >
@@ -1708,37 +1769,51 @@ export default function MapViewContent() {
                   </span>
                 </div>
 
-                {selectedPlace.review.trim().length > 0 && (
-                  <p className="mt-2 text-xs text-slate-600 leading-relaxed">
-                    {truncatePopupText(selectedPlace.review)}
-                  </p>
-                )}
-
-                {selectedPlace.imageUrls && selectedPlace.imageUrls.length > 0 && (
-                  <div className="mt-2.5 grid grid-cols-3 gap-1">
-                    {selectedPlace.imageUrls.map((url, idx) => (
-                      <Link
-                        key={idx}
-                        href={`/activities/${selectedPlace.id}`}
-                        className="relative aspect-square rounded-lg overflow-hidden border border-slate-100 bg-slate-50 cursor-pointer hover:opacity-90 transition-opacity"
-                      >
-                        <img src={url} alt={`Bild ${idx + 1}`} className="h-full w-full object-cover" />
-                      </Link>
-                    ))}
+                {isPlaceDetailLoading ? (
+                  <div className="mt-2.5 space-y-2" aria-hidden="true">
+                    <div className="h-3 w-full animate-pulse rounded-md bg-slate-100" />
+                    <div className="h-3 w-4/5 animate-pulse rounded-md bg-slate-100" />
+                    <div className="mt-1 grid grid-cols-3 gap-1">
+                      <div className="aspect-square animate-pulse rounded-lg bg-slate-100" />
+                      <div className="aspect-square animate-pulse rounded-lg bg-slate-100" />
+                      <div className="aspect-square animate-pulse rounded-lg bg-slate-100" />
+                    </div>
                   </div>
-                )}
+                ) : (
+                  <>
+                    {selectedPlace.review.trim().length > 0 && (
+                      <p className="mt-2 text-xs text-slate-600 leading-relaxed">
+                        {truncatePopupText(selectedPlace.review)}
+                      </p>
+                    )}
 
-                {selectedPlace.categories.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {selectedPlace.categories.map((category) => (
-                      <span
-                        key={category}
-                        className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] font-semibold text-slate-600"
-                      >
-                        {category}
-                      </span>
-                    ))}
-                  </div>
+                    {selectedPlace.imageUrls && selectedPlace.imageUrls.length > 0 && (
+                      <div className="mt-2.5 grid grid-cols-3 gap-1">
+                        {selectedPlace.imageUrls.map((url, idx) => (
+                          <Link
+                            key={idx}
+                            href={`/activities/${selectedPlace.id}`}
+                            className="relative aspect-square rounded-lg overflow-hidden border border-slate-100 bg-slate-50 cursor-pointer hover:opacity-90 transition-opacity"
+                          >
+                            <img src={url} alt={`Bild ${idx + 1}`} className="h-full w-full object-cover" />
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+
+                    {selectedPlace.categories.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {selectedPlace.categories.map((category) => (
+                          <span
+                            key={category}
+                            className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] font-semibold text-slate-600"
+                          >
+                            {category}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <div className="mt-3 flex items-center gap-2">
@@ -1821,7 +1896,7 @@ export default function MapViewContent() {
       </div>
 
       {/* Floating Login/Register Prompt Modal at the bottom when logged out */}
-      {!isLoading && !user && (
+      {!isSessionLoading && !user && (
         <div className="absolute bottom-[calc(64px+8px+env(safe-area-inset-bottom))] left-4 right-4 z-20 bg-white/95 p-5 rounded-2xl shadow-2xl backdrop-blur-md flex flex-col gap-3">
           <div>
 
