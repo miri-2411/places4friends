@@ -107,19 +107,23 @@ const MAP_STYLES = [
   { id: "outdoors", name: "Outdoor", url: "mapbox://styles/mapbox/outdoors-v12" },
 ];
 
-const POPUP_OFFSETS: { [key: string]: [number, number] } = {
-  'top': [0, 10],
-  'top-left': [0, 10],
-  'top-right': [0, 10],
-  'bottom': [0, -42],
-  'bottom-left': [0, -42],
-  'bottom-right': [0, -42],
-  'left': [14, -16],
-  'right': [-14, -16]
-};
-
 // Pin markers are h-10/w-10 (40px); cluster when circle centers would overlap.
 const MARKER_DIAMETER_PX = 40;
+
+// Pins use anchor="center"; tip should meet the top edge of the 40px circle.
+const POPUP_TIP_GAP_PX = 2;
+const POPUP_OFFSET_ABOVE_PIN = -(MARKER_DIAMETER_PX / 2 + POPUP_TIP_GAP_PX);
+
+const POPUP_OFFSETS: { [key: string]: [number, number] } = {
+  top: [0, 10],
+  "top-left": [0, 10],
+  "top-right": [0, 10],
+  bottom: [0, POPUP_OFFSET_ABOVE_PIN],
+  "bottom-left": [0, POPUP_OFFSET_ABOVE_PIN],
+  "bottom-right": [0, POPUP_OFFSET_ABOVE_PIN],
+  left: [14, -MARKER_DIAMETER_PX / 2],
+  right: [-14, -MARKER_DIAMETER_PX / 2],
+};
 
 function projectToWorldPixel(longitude: number, latitude: number, zoom: number) {
   const worldSize = 512 * Math.pow(2, zoom);
@@ -1485,6 +1489,7 @@ export default function MapViewContent() {
             <Popup
               latitude={selectedPlace.latitude}
               longitude={selectedPlace.longitude}
+              anchor="bottom"
               onClose={() => setSelectedPlace(null)}
               closeButton={false}
               className="z-20 font-sans custom-map-popup"
