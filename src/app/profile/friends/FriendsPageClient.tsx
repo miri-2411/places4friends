@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { Loader2 } from "lucide-react";
 import FriendsView from "@/components/FriendsView";
 import AuthGate from "@/components/auth/AuthGate";
 import { createClient } from "@/lib/supabase/client";
+
+import { FriendsSkeleton } from "@/components/ui/Skeleton";
 
 function FriendsContent({ user }: { user: User }) {
   const supabase = createClient();
@@ -45,11 +46,7 @@ function FriendsContent({ user }: { user: User }) {
   }, [supabase, user]);
 
   if (loading || !currentUser) {
-    return (
-      <div className="flex flex-1 items-center justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-green-700" />
-      </div>
-    );
+    return <FriendsSkeleton />;
   }
 
   return <FriendsView currentUser={currentUser} />;
@@ -57,7 +54,11 @@ function FriendsContent({ user }: { user: User }) {
 
 export default function FriendsPageClient() {
   return (
-    <AuthGate context="friends" headerTitle="Freunde & Anfragen">
+    <AuthGate 
+      context="friends" 
+      headerTitle="Freunde & Anfragen"
+      skeleton={<FriendsSkeleton />}
+    >
       {(user) => <FriendsContent user={user} />}
     </AuthGate>
   );

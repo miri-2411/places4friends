@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
-import { Loader2 } from "lucide-react";
 import PublicProfileView from "@/components/PublicProfileView";
 import AuthGate from "@/components/auth/AuthGate";
 import { createClient } from "@/lib/supabase/client";
 import { formatTimestamp, getUserColorClass } from "@/lib/auth/placeFormatting";
+
+import { ProfileSkeleton, ActivityCardSkeleton } from "@/components/ui/Skeleton";
 
 interface Friendship {
   id: string;
@@ -139,19 +140,11 @@ function PublicProfileContent({
   }, [supabase, friendId, currentUserId]);
 
   if (currentUserId === friendId) {
-    return (
-      <div className="flex flex-1 items-center justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-green-700" />
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
   if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-green-700" />
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
   if (notFound || !friendData) {
@@ -186,7 +179,11 @@ export default function PublicProfilePageClient({
   isInvite: boolean;
 }) {
   return (
-    <AuthGate context="profile" headerTitle="Profil">
+    <AuthGate 
+      context="profile" 
+      headerTitle="Profil"
+      skeleton={<ProfileSkeleton />}
+    >
       {(user: User) => (
         <PublicProfileContent
           friendId={friendId}

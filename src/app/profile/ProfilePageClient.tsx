@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { Loader2 } from "lucide-react";
 import ProfileView from "@/components/ProfileView";
 import AuthGate from "@/components/auth/AuthGate";
 import { createClient } from "@/lib/supabase/client";
 import { formatTimestamp, getUserColorClass } from "@/lib/auth/placeFormatting";
+
+import { ProfileSkeleton } from "@/components/ui/Skeleton";
 
 function ProfileContent({ user }: { user: User }) {
   const supabase = createClient();
@@ -179,11 +180,7 @@ function ProfileContent({ user }: { user: User }) {
   }, [supabase, user]);
 
   if (loading || !userData) {
-    return (
-      <div className="flex flex-1 items-center justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-green-700" />
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
   return (
@@ -202,6 +199,7 @@ export default function ProfilePageClient() {
       context="profile"
       headerTitle="Mein Profil"
       titleClassName="text-sm font-bold text-slate-900"
+      skeleton={<ProfileSkeleton />}
     >
       {(user) => <ProfileContent user={user} />}
     </AuthGate>

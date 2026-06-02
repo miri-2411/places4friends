@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { Loader2 } from "lucide-react";
 import SettingsView from "@/components/SettingsView";
 import AuthGate from "@/components/auth/AuthGate";
 import { createClient } from "@/lib/supabase/client";
+
+import { FormSkeleton } from "@/components/ui/Skeleton";
 
 function SettingsContent({ user }: { user: User }) {
   const supabase = createClient();
@@ -43,11 +44,7 @@ function SettingsContent({ user }: { user: User }) {
   }, [supabase, user]);
 
   if (loading || !userData) {
-    return (
-      <div className="flex flex-1 items-center justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-green-700" />
-      </div>
-    );
+    return <FormSkeleton />;
   }
 
   return <SettingsView user={userData} />;
@@ -59,6 +56,7 @@ export default function SettingsPageClient() {
       context="profile"
       headerTitle="Einstellungen"
       titleClassName="text-sm font-bold text-slate-900"
+      skeleton={<FormSkeleton />}
     >
       {(user) => <SettingsContent user={user} />}
     </AuthGate>

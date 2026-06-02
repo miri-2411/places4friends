@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { Loader2 } from "lucide-react";
 import ActivitiesView from "@/components/ActivitiesView";
 import AuthGate from "@/components/auth/AuthGate";
 import { createClient } from "@/lib/supabase/client";
 import { formatTimestamp, getUserColorClass } from "@/lib/auth/placeFormatting";
+
+import { ActivityCardSkeleton, ActivitiesSkeleton } from "@/components/ui/Skeleton";
 
 function ActivitiesContent({ user }: { user: User }) {
   const supabase = createClient();
@@ -132,11 +133,7 @@ function ActivitiesContent({ user }: { user: User }) {
   }, [supabase, user.id]);
 
   if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-green-700" />
-      </div>
-    );
+    return <ActivitiesSkeleton />;
   }
 
   return (
@@ -146,7 +143,11 @@ function ActivitiesContent({ user }: { user: User }) {
 
 export default function ActivitiesPageClient() {
   return (
-    <AuthGate context="activities" headerTitle="Aktivitäten">
+    <AuthGate 
+      context="activities" 
+      headerTitle="Aktivitäten"
+      skeleton={<ActivitiesSkeleton />}
+    >
       {(user) => <ActivitiesContent user={user} />}
     </AuthGate>
   );

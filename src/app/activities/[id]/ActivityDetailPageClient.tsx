@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { Loader2 } from "lucide-react";
 import ActivityDetailView from "@/components/ActivityDetailView";
 import AuthGate from "@/components/auth/AuthGate";
 import { createClient } from "@/lib/supabase/client";
 import { formatTimestamp, getUserColorClass } from "@/lib/auth/placeFormatting";
+
+import { ActivityDetailSkeleton } from "@/components/ui/Skeleton";
 
 interface Friendship {
   id: string;
@@ -186,11 +187,7 @@ function ActivityDetailContent({
   }, [supabase, activityId, currentUserId]);
 
   if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-green-700" />
-      </div>
-    );
+    return <ActivityDetailSkeleton />;
   }
 
   if (notFound || !viewProps) {
@@ -213,7 +210,11 @@ export default function ActivityDetailPageClient({
   activityId: string;
 }) {
   return (
-    <AuthGate context="activities" headerTitle="Ort Details">
+    <AuthGate 
+      context="activities" 
+      headerTitle="Ort Details"
+      skeleton={<ActivityDetailSkeleton />}
+    >
       {(user: User) => (
         <ActivityDetailContent activityId={activityId} currentUserId={user.id} />
       )}
