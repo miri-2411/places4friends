@@ -1,4 +1,5 @@
 import RegisterForm from "@/components/RegisterForm";
+import LegalFooter from "@/components/LegalFooter";
 import Link from "next/link";
 import { MapPin } from "lucide-react";
 import type { Metadata } from "next";
@@ -30,7 +31,7 @@ export default function RegisterPage() {
 
         <RegisterForm />
 
-        <p className="mt-6 text-center text-xs text-slate-500 pb-6">
+        <p className="mt-6 text-center text-xs text-slate-500">
           Bereits ein Konto?{" "}
           <Link
             href="/login"
@@ -39,6 +40,8 @@ export default function RegisterPage() {
             Jetzt anmelden
           </Link>
         </p>
+
+        <LegalFooter />
       </div>
     </div>
   );

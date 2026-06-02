@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 import OnboardingOverlay from "@/components/OnboardingOverlay";
+import StorageNotice from "@/components/StorageNotice";
 import AuthProvider from "@/components/auth/AuthProvider";
 
 const inter = Inter({
@@ -81,7 +82,8 @@ export default function RootLayout({
           </main>
 
           <OnboardingOverlay />
-          
+          <StorageNotice />
+
           {/* Persistent Navigation Bar */}
           <BottomNav />
         </div>

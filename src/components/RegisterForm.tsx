@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, User, AtSign, ArrowRight, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -11,6 +12,10 @@ export default function RegisterForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  const canSubmit = acceptedPrivacy && acceptedTerms && !loading;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -191,10 +196,43 @@ export default function RegisterForm() {
         </div>
       )}
 
+      <div className="space-y-3 rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm">
+        <label className="flex items-start gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={acceptedPrivacy}
+            onChange={(e) => setAcceptedPrivacy(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-green-700 focus:ring-brand-green-500"
+          />
+          <span className="text-xs leading-relaxed text-slate-600">
+            Ich habe die{" "}
+            <Link href="/datenschutz" className="text-brand-green-700 font-semibold hover:underline">
+              Datenschutzerklärung
+            </Link>{" "}
+            zur Kenntnis genommen.
+          </span>
+        </label>
+        <label className="flex items-start gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-green-700 focus:ring-brand-green-500"
+          />
+          <span className="text-xs leading-relaxed text-slate-600">
+            Ich akzeptiere die{" "}
+            <Link href="/agb" className="text-brand-green-700 font-semibold hover:underline">
+              Nutzungsbedingungen
+            </Link>
+            .
+          </span>
+        </label>
+      </div>
+
       {/* Submit */}
       <button
         type="submit"
-        disabled={loading}
+        disabled={!canSubmit}
         className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-green-700 py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand-green-900/10 transition-all hover:bg-brand-green-800 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
       >
         {loading ? (

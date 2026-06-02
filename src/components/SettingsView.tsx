@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Mail, Save, User, AtSign, Bell, Trash2, X, AlertTriangle, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, Mail, Save, User, AtSign, Bell, Trash2, X, AlertTriangle, Loader2, Sparkles, Download } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { authenticatedFetch } from "@/lib/auth/authenticatedFetch";
 
@@ -29,6 +29,8 @@ export default function SettingsView({ user }: { user: UserProfile }) {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const handleStartOnboarding = () => {
     const storageKey = `p4f_onboarding_step_${user.id}`;
@@ -109,6 +111,32 @@ export default function SettingsView({ user }: { user: UserProfile }) {
         ? "Bitte bestätige die neue E-Mail-Adresse in deinem Postfach."
         : "Gespeichert."
     );
+  };
+
+  const handleExportData = async () => {
+    setIsExporting(true);
+    setExportError(null);
+    try {
+      const response = await authenticatedFetch("/api/user/export");
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Export fehlgeschlagen.");
+      }
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition");
+      const filenameMatch = disposition?.match(/filename="([^"]+)"/);
+      const filename = filenameMatch?.[1] ?? `places4friends-export-${new Date().toISOString().slice(0, 10)}.json`;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error: unknown) {
+      setExportError(error instanceof Error ? error.message : "Export fehlgeschlagen.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -246,6 +274,28 @@ export default function SettingsView({ user }: { user: UserProfile }) {
           >
             <Sparkles className="h-4 w-4" />
             Tour starten
+          </button>
+        </section>
+
+        <section className="space-y-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.03)]">
+          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Deine Daten</h2>
+          <p className="text-[11px] font-medium text-slate-500">
+            Lade eine Kopie aller bei uns gespeicherten Daten als JSON-Datei herunter (Profil, Empfehlungen,
+            Kommentare, Freundschaften, Merkliste und Einladungslinks).
+          </p>
+          {exportError && (
+            <div className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+              {exportError}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={handleExportData}
+            disabled={isExporting}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-brand-green-200 bg-brand-green-50/50 px-4 py-2.5 text-sm font-semibold text-brand-green-800 shadow-sm transition-all hover:bg-brand-green-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+          >
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Daten exportieren
           </button>
         </section>
 

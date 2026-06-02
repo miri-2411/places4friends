@@ -30,6 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# internal compliance (Art. 30 DSGVO – not for public repos)
+/docs/verzeichnis-verarbeitungstaetigkeiten-art30.md
+
 # local env files
 .env*
 

@@ -1,4 +1,5 @@
 import LoginForm from "@/components/LoginForm";
+import LegalFooter from "@/components/LegalFooter";
 import Link from "next/link";
 import { MapPin } from "lucide-react";
 import type { Metadata } from "next";
@@ -41,6 +42,8 @@ export default function LoginPage() {
             Jetzt registrieren
           </Link>
         </p>
+
+        <LegalFooter />
       </div>
     </div>
   );

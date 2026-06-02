@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Settings, Sparkles, LogOut, MapPin, Pencil, Trash2, X, Check, Bookmark, Loader2, Menu, Shield, FileText, MoreVertical, MessageCircle, Share2, Plus } from "lucide-react";
+import { Settings, Sparkles, LogOut, MapPin, Pencil, Trash2, X, Check, Bookmark, Loader2, Menu, Shield, FileText, Scale, MoreVertical, MessageCircle, Share2, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { authenticatedFetch } from "@/lib/auth/authenticatedFetch";
 import { shareFriendInviteLink } from "@/lib/friendInvite";
@@ -1120,6 +1120,15 @@ export default function ProfileView({
                 >
                   <Shield className="h-4.5 w-4.5 text-slate-400" />
                   <span>Datenschutzerklärung</span>
+                </Link>
+
+                <Link
+                  href="/agb"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 active:scale-98 transition-all cursor-pointer"
+                >
+                  <Scale className="h-4.5 w-4.5 text-slate-400" />
+                  <span>Nutzungsbedingungen</span>
                 </Link>
 
                 <Link
