@@ -255,6 +255,8 @@ export default function BottomNav() {
           <span className="text-[10px] tracking-wide">Profil</span>
         </Link>
       </div>
+
+
     </nav>
   );
 }

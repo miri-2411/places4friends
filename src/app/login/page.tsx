@@ -3,6 +3,7 @@ import LegalFooter from "@/components/LegalFooter";
 import Link from "next/link";
 import { MapPin } from "lucide-react";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Anmelden",
@@ -31,7 +32,9 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <LoginForm />
+        <Suspense fallback={<div className="h-[250px] w-full rounded-2xl bg-white border border-slate-100 p-6 shadow-sm animate-pulse" />}>
+          <LoginForm />
+        </Suspense>
 
         <p className="mt-6 text-center text-xs text-slate-500">
           Noch kein Konto?{" "}

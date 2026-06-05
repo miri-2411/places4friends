@@ -176,6 +176,7 @@ export default function ProfileView({
     setWishlistItems(wishlist);
   }, [wishlist]);
 
+
   useEffect(() => {
     const handleOutsideClick = () => {
       setActiveMenuId(null);
@@ -1093,6 +1094,7 @@ export default function ProfileView({
                   <Settings className="h-4.5 w-4.5 text-slate-400" />
                   <span>Einstellungen</span>
                 </Link>
+
 
                 <button
                   type="button"

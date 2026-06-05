@@ -1,5 +1,7 @@
 import SettingsPageClient from "@/app/profile/settings/SettingsPageClient";
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { FormSkeleton } from "@/components/ui/Skeleton";
 
 export const metadata: Metadata = {
   title: "Einstellungen",
@@ -8,5 +10,9 @@ export const metadata: Metadata = {
 };
 
 export default function ProfileSettingsPage() {
-  return <SettingsPageClient />;
+  return (
+    <Suspense fallback={<FormSkeleton />}>
+      <SettingsPageClient />
+    </Suspense>
+  );
 }
