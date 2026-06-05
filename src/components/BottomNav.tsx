@@ -204,7 +204,15 @@ export default function BottomNav() {
     <nav className="absolute bottom-0 left-0 right-0 z-50 w-full border-t border-slate-100 bg-white/90 pb-safe-bottom shadow-[0_-4px_24px_rgba(0,0,0,0.04)] backdrop-blur-md">
       <div className="flex h-16 items-center justify-around px-2">
         {/* Map Tab */}
-        <Link href="/" className={getTabClass("/")}>
+        <Link
+          href="/"
+          className={getTabClass("/")}
+          onClick={() => {
+            if (pathname === "/") {
+              window.dispatchEvent(new CustomEvent("reset-map-zoom"));
+            }
+          }}
+        >
           <MapPin className={`h-5 w-5 transition-all duration-200 ${isTabActive("/") ? "stroke-[2.6]" : "stroke-[2]"}`} />
           <span className="text-[10px] tracking-wide">Karte</span>
         </Link>

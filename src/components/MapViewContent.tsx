@@ -1192,6 +1192,21 @@ export default function MapViewContent() {
     });
   }, [fitMapToAllOverview]);
 
+  useEffect(() => {
+    const handleResetZoom = () => {
+      setSelectedPlace(null);
+      setIsCommentsOpen(false);
+      setShowSuggestions(false);
+      setSearchQuery("");
+      scheduleFitAllOverview();
+    };
+
+    window.addEventListener("reset-map-zoom", handleResetZoom);
+    return () => {
+      window.removeEventListener("reset-map-zoom", handleResetZoom);
+    };
+  }, [scheduleFitAllOverview]);
+
   const toggleWishlist = async (activityId: string) => {
     if (!user) return;
     const isSaved = wishlistIds.includes(activityId);
