@@ -252,7 +252,7 @@ function resolveUrlViewport(
 
 /**
  * Resolves the initial map viewport following the priority chain:
- * URL params > GPS (if granted) > saved viewport (logged in) > IP geo (guests) > DE fallback.
+ * URL params > saved viewport (logged in) > GPS (if granted) > IP geo (guests) > DE fallback.
  */
 export async function resolveInitialViewport(
   options: ResolveInitialViewportOptions
@@ -265,6 +265,11 @@ export async function resolveInitialViewport(
   );
   if (urlViewport) return urlViewport;
 
+  if (options.userId) {
+    const saved = loadSavedViewport(options.userId);
+    if (saved) return saved;
+  }
+
   const permission = await getGeolocationPermission();
   if (permission === "granted") {
     try {
@@ -276,12 +281,6 @@ export async function resolveInitialViewport(
         return viewportAround(lastGeo.latitude, lastGeo.longitude, ZOOM_100KM);
       }
     }
-  }
-
-  if (options.userId) {
-    const saved = loadSavedViewport(options.userId);
-    if (saved) return saved;
-    return { ...FALLBACK_VIEWPORT };
   }
 
   try {

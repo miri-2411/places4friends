@@ -396,6 +396,7 @@ export default function MapViewContent() {
   const mapReadyRef = useRef(false);
   const pinsFetchAbortRef = useRef<AbortController | null>(null);
   const placeDetailsCacheRef = useRef(new globalThis.Map<string, MapPlaceDetails>());
+  const activePreloadsRef = useRef(new globalThis.Map<string, Promise<MapPlaceDetails>>());
   const deepLinkPlaceRef = useRef<MapPlace | null>(null);
   viewStateRef.current = viewState;
 
@@ -468,6 +469,37 @@ export default function MapViewContent() {
     }
   }, [user, mapFilterParams]);
 
+  const preloadPlaceDetails = useCallback((pinId: string): Promise<MapPlaceDetails> => {
+    const cached = placeDetailsCacheRef.current.get(pinId);
+    if (cached) return Promise.resolve(cached);
+
+    const active = activePreloadsRef.current.get(pinId);
+    if (active) return active;
+
+    const promise = (async () => {
+      try {
+        const response = await authenticatedFetch(`/api/map/activities/${pinId}`);
+        if (!response.ok) throw new Error("Details konnten nicht geladen werden.");
+        const place = (await response.json()) as MapPlace;
+        const details: MapPlaceDetails = {
+          review: place.review,
+          categories: place.categories,
+          imageUrls: place.imageUrls,
+          createdAt: place.createdAt,
+        };
+        placeDetailsCacheRef.current.set(pinId, details);
+        activePreloadsRef.current.delete(pinId);
+        return details;
+      } catch (error) {
+        activePreloadsRef.current.delete(pinId);
+        throw error;
+      }
+    })();
+
+    activePreloadsRef.current.set(pinId, promise);
+    return promise;
+  }, []);
+
   const loadPlaceDetails = useCallback(async (pin: MapPlacePin) => {
     const cached = placeDetailsCacheRef.current.get(pin.id);
     if (cached) {
@@ -478,23 +510,14 @@ export default function MapViewContent() {
 
     setIsPlaceDetailLoading(true);
     try {
-      const response = await authenticatedFetch(`/api/map/activities/${pin.id}`);
-      if (!response.ok) throw new Error("Details konnten nicht geladen werden.");
-      const place = (await response.json()) as MapPlace;
-      const details: MapPlaceDetails = {
-        review: place.review,
-        categories: place.categories,
-        imageUrls: place.imageUrls,
-        createdAt: place.createdAt,
-      };
-      placeDetailsCacheRef.current.set(pin.id, details);
-      setSelectedPlace((prev) => (prev?.id === pin.id ? place : prev));
+      const details = await preloadPlaceDetails(pin.id);
+      setSelectedPlace((prev) => (prev?.id === pin.id ? mergeMapPlace(pin, details) : prev));
     } catch (error) {
       console.error("Error loading place details:", error);
     } finally {
       setIsPlaceDetailLoading(false);
     }
-  }, []);
+  }, [preloadPlaceDetails]);
 
   useEffect(() => {
     async function loadMapSession() {
@@ -713,13 +736,10 @@ export default function MapViewContent() {
     void fetchViewportPins();
 
     if (!user?.id) return;
-    void getGeolocationPermission().then((permission) => {
-      if (permission === "granted") return;
-      persistViewportDebounced(user.id, {
-        latitude: viewStateRef.current.latitude,
-        longitude: viewStateRef.current.longitude,
-        zoom: viewStateRef.current.zoom,
-      });
+    persistViewportDebounced(user.id, {
+      latitude: viewStateRef.current.latitude,
+      longitude: viewStateRef.current.longitude,
+      zoom: viewStateRef.current.zoom,
     });
   }, [user, persistViewportDebounced, fetchViewportPins]);
 
@@ -756,6 +776,20 @@ export default function MapViewContent() {
     () => clusterPlacesByScreenOverlap(placePins, viewState.zoom),
     [placePins, viewState.zoom]
   );
+
+  useEffect(() => {
+    // Find all single places currently visible
+    const singlePlaces = clusteredPlaceGroups
+      .filter((group) => group.places.length === 1)
+      .map((group) => group.places[0]);
+
+    // Preload details for visible single places
+    singlePlaces.forEach((place) => {
+      preloadPlaceDetails(place.id).catch(() => {
+        // Ignored, will retry on click if failed
+      });
+    });
+  }, [clusteredPlaceGroups, preloadPlaceDetails]);
 
   useEffect(() => {
     if (!selectedPlace) return;

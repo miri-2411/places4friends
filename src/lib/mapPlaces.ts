@@ -96,11 +96,20 @@ export function activityRowToDetails(activity: {
 }
 
 /** Expands bounds slightly so panning does not immediately drop edge pins. */
-export function expandMapBounds(bounds: MapBounds, paddingRatio = 0.12): MapBounds {
+export function expandMapBounds(bounds: MapBounds, paddingRatio = 0.25): MapBounds {
   const latSpan = bounds.north - bounds.south;
   const lngSpan = bounds.east - bounds.west;
-  const latPad = latSpan * paddingRatio;
-  const lngPad = lngSpan * paddingRatio;
+
+  const centerLat = (bounds.north + bounds.south) / 2;
+  const cosLat = Math.cos((centerLat * Math.PI) / 180);
+  const cosLatSafe = Math.max(0.2, Math.abs(cosLat));
+
+  // Ensure at least 8 km of buffer outside the viewport in all directions
+  const minLatPad = 8 / 111.32;
+  const minLngPad = 8 / (111.32 * cosLatSafe);
+
+  const latPad = Math.max(latSpan * paddingRatio, minLatPad);
+  const lngPad = Math.max(lngSpan * paddingRatio, minLngPad);
 
   return {
     north: Math.min(90, bounds.north + latPad),
