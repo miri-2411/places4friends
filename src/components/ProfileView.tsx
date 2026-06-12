@@ -11,6 +11,7 @@ import { signOutClient } from "@/lib/auth/signOutClient";
 import ActivityCard from "./ActivityCard";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { buildActivityCountMap } from "@/lib/activityCounts";
+import LegalFooter from "./LegalFooter";
 
 interface User {
   id: string;
@@ -1521,6 +1522,8 @@ export default function ProfileView({
             </div>
           )}
       </div>
+
+      <LegalFooter />
 
       {isCropOpen && (
         <div 
