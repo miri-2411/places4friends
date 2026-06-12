@@ -51,6 +51,9 @@ export function getAvatarPublicUrl(
   path?: string | null
 ): string | null {
   if (!path) return null;
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
   const { data } = supabase.storage.from("avatars").getPublicUrl(path);
   return data.publicUrl;
 }

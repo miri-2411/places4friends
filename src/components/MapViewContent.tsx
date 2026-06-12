@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { authenticatedFetch } from "@/lib/auth/authenticatedFetch";
+import { getAvatarUrl } from "@/lib/avatar";
 import {
   FALLBACK_VIEWPORT,
   GEOLOCATION_NOT_SUPPORTED_MESSAGE,
@@ -557,9 +558,7 @@ export default function MapViewContent() {
           .eq("status", "accepted");
 
         const getAvatarPublicUrl = (path?: string | null) => {
-          if (!path) return null;
-          const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-          return `${data.publicUrl}?t=${Date.now()}`;
+          return getAvatarUrl(path, true);
         };
 
         const loadedFriends = (friendships || []).map((f: any) => {
@@ -1303,9 +1302,7 @@ export default function MapViewContent() {
           .slice(0, 2)
           .join("")
           .toUpperCase() || "?";
-        const avatarUrl = profile?.avatar_url
-          ? `${supabase.storage.from("avatars").getPublicUrl(profile.avatar_url).data.publicUrl}?t=${Date.now()}`
-          : null;
+        const avatarUrl = getAvatarUrl(profile?.avatar_url, true);
         return {
           id: row.id,
           userId: row.user_id,
@@ -1865,6 +1862,7 @@ export default function MapViewContent() {
                       src={friend.avatarUrl}
                       alt="Profilbild"
                       className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
                     />
                   ) : (
                     friend.initials
@@ -1946,6 +1944,7 @@ export default function MapViewContent() {
                               src={representativePlace.userAvatarUrl}
                               alt={`Profilbild von ${representativePlace.userName}`}
                               className="h-full w-full object-cover"
+                              referrerPolicy="no-referrer"
                             />
                           ) : (
                             representativePlace.userInitials
@@ -1988,6 +1987,7 @@ export default function MapViewContent() {
                         src={place.userAvatarUrl}
                         alt={`Profilbild von ${place.userName}`}
                         className="h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
                       />
                     ) : (
                       place.userInitials
@@ -2058,6 +2058,7 @@ export default function MapViewContent() {
                         src={selectedPlace.userAvatarUrl}
                         alt="Profilbild"
                         className="h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
                       />
                     ) : (
                       selectedPlace.userInitials
@@ -2271,6 +2272,7 @@ export default function MapViewContent() {
                                   src={comment.userAvatarUrl}
                                   alt="Profilbild"
                                   className="h-full w-full object-cover"
+                                  referrerPolicy="no-referrer"
                                 />
                               ) : (
                                 comment.userInitials

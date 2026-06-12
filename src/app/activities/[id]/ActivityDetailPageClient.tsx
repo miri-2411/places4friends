@@ -6,6 +6,7 @@ import ActivityDetailView from "@/components/ActivityDetailView";
 import AuthGate from "@/components/auth/AuthGate";
 import { createClient } from "@/lib/supabase/client";
 import { formatTimestamp, getUserColorClass } from "@/lib/auth/placeFormatting";
+import { getAvatarUrl } from "@/lib/avatar";
 
 import { ActivityDetailSkeleton } from "@/components/ui/Skeleton";
 
@@ -66,9 +67,7 @@ function ActivityDetailContent({
           .join("")
           .toUpperCase() || "?";
 
-      const creatorAvatarUrl = creatorProfile?.avatar_url
-        ? `${supabase.storage.from("avatars").getPublicUrl(creatorProfile.avatar_url).data.publicUrl}?t=${Date.now()}`
-        : null;
+      const creatorAvatarUrl = getAvatarUrl(creatorProfile?.avatar_url, true);
 
       const isOwner = currentUserId === act.user_id;
 
@@ -136,9 +135,7 @@ function ActivityDetailContent({
             .slice(0, 2)
             .join("")
             .toUpperCase() || "?";
-        const avatarUrl = profile?.avatar_url
-          ? `${supabase.storage.from("avatars").getPublicUrl(profile.avatar_url).data.publicUrl}?t=${Date.now()}`
-          : null;
+        const avatarUrl = getAvatarUrl(profile?.avatar_url, true);
 
         return {
           id: row.id,

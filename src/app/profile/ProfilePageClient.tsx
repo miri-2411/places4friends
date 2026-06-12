@@ -6,6 +6,7 @@ import ProfileView from "@/components/ProfileView";
 import AuthGate from "@/components/auth/AuthGate";
 import { createClient } from "@/lib/supabase/client";
 import { formatTimestamp, getUserColorClass } from "@/lib/auth/placeFormatting";
+import { getAvatarUrl } from "@/lib/avatar";
 
 import { ProfileSkeleton } from "@/components/ui/Skeleton";
 
@@ -131,9 +132,7 @@ function ProfileContent({ user }: { user: User }) {
               .slice(0, 2)
               .join("")
               .toUpperCase() || "?";
-          const friendAvatarUrl = friend?.avatar_url
-            ? `${supabase.storage.from("avatars").getPublicUrl(friend.avatar_url).data.publicUrl}?t=${Date.now()}`
-            : null;
+          const friendAvatarUrl = getAvatarUrl(friend?.avatar_url, true);
 
           return {
             id: w.id,

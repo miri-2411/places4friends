@@ -10,6 +10,7 @@ import { authenticatedFetch } from "@/lib/auth/authenticatedFetch";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { buildActivityCountMap } from "@/lib/activityCounts";
 import type { FriendInviteValidationError } from "@/lib/friendInvite";
+import { getAvatarUrl } from "@/lib/avatar";
 
 interface ActivityComment {
   id: string;
@@ -297,9 +298,7 @@ export default function PublicProfileView({
 
       const mappedFriends = (data || []).map((row: any) => {
         const otherUser = row.sender_id === friend.id ? row.receiver : row.sender;
-        const avatarUrl = otherUser.avatar_url
-          ? supabase.storage.from("avatars").getPublicUrl(otherUser.avatar_url).data.publicUrl
-          : null;
+        const avatarUrl = getAvatarUrl(otherUser.avatar_url);
         return {
           id: otherUser.id,
           username: otherUser.username,
@@ -335,12 +334,7 @@ export default function PublicProfileView({
   }, [initialWishlistedIds]);
 
   useEffect(() => {
-    if (!friend.avatarUrl) {
-      setAvatarPublicUrl(null);
-      return;
-    }
-    const { data } = supabase.storage.from("avatars").getPublicUrl(friend.avatarUrl);
-    setAvatarPublicUrl(`${data.publicUrl}?t=${Date.now()}`);
+    setAvatarPublicUrl(getAvatarUrl(friend.avatarUrl, true));
   }, [friend.avatarUrl]);
 
   useEffect(() => {
@@ -388,11 +382,7 @@ export default function PublicProfileView({
           .join("")
           .toUpperCase() || "?";
 
-        let avatarUrl: string | null = null;
-        if (profile?.avatar_url) {
-          const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(profile.avatar_url);
-          avatarUrl = urlData?.publicUrl ?? null;
-        }
+        const avatarUrl = getAvatarUrl(profile?.avatar_url);
 
         const comment: ActivityComment = {
           id: row.id,
@@ -473,11 +463,7 @@ export default function PublicProfileView({
         .join("")
         .toUpperCase() || "?";
 
-      let avatarUrl: string | null = null;
-      if (profile?.avatar_url) {
-        const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(profile.avatar_url);
-        avatarUrl = `${urlData?.publicUrl}?t=${Date.now()}`;
-      }
+      const avatarUrl = getAvatarUrl(profile?.avatar_url, true);
 
       return {
         id: row.id,
@@ -634,6 +620,7 @@ export default function PublicProfileView({
                   src={avatarPublicUrl}
                   alt="Profilbild"
                   className="h-full w-full rounded-full object-cover"
+                  referrerPolicy="no-referrer"
                 />
               </div>
             ) : (
@@ -855,6 +842,7 @@ export default function PublicProfileView({
                                         src={comment.userAvatarUrl}
                                         alt="Profilbild"
                                         className="h-full w-full object-cover"
+                                        referrerPolicy="no-referrer"
                                       />
                                     ) : (
                                       comment.userInitials
@@ -1053,6 +1041,7 @@ export default function PublicProfileView({
                               src={f.avatarUrl}
                               alt="Profilbild"
                               className="h-full w-full object-cover"
+                              referrerPolicy="no-referrer"
                             />
                           ) : (
                             getInitials(f.full_name, f.username)

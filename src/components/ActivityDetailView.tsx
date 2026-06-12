@@ -24,6 +24,7 @@ import { createClient } from "@/lib/supabase/client";
 import { authenticatedFetch } from "@/lib/auth/authenticatedFetch";
 import ActivityCard from "./ActivityCard";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { getAvatarUrl } from "@/lib/avatar";
 
 interface User {
   id: string;
@@ -421,9 +422,7 @@ export default function ActivityDetailView({
           .slice(0, 2)
           .join("")
           .toUpperCase() || "?";
-        const avatarUrl = profile?.avatar_url
-          ? supabase.storage.from("avatars").getPublicUrl(profile.avatar_url).data.publicUrl
-          : null;
+        const avatarUrl = getAvatarUrl(profile?.avatar_url);
 
         return {
           id: row.id,
@@ -926,6 +925,7 @@ export default function ActivityDetailView({
                                 src={comment.userAvatarUrl}
                                 alt="Profilbild"
                                 className="h-full w-full object-cover"
+                                referrerPolicy="no-referrer"
                               />
                             ) : (
                               comment.userInitials

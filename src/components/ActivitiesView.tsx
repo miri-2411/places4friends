@@ -7,6 +7,7 @@ import ActivityCard from "./ActivityCard";
 import { createClient } from "@/lib/supabase/client";
 import { authenticatedFetch } from "@/lib/auth/authenticatedFetch";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { getAvatarUrl } from "@/lib/avatar";
 
 interface FriendInfo {
   id: string;
@@ -142,9 +143,7 @@ export default function ActivitiesView({
   };
 
   const getAvatarPublicUrl = (path?: string | null) => {
-    if (!path) return null;
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    return `${data.publicUrl}?t=${Date.now()}`;
+    return getAvatarUrl(path, true);
   };
 
   const getUserColorClass = (id: string): string => {
@@ -403,6 +402,7 @@ export default function ActivitiesView({
                                     src={comment.userAvatarUrl}
                                     alt="Profilbild"
                                     className="h-full w-full object-cover"
+                                    referrerPolicy="no-referrer"
                                   />
                                 ) : (
                                   comment.userInitials

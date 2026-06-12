@@ -201,6 +201,7 @@ export default function ActivityCard({
                       src={friend.avatarUrl}
                       alt="Profilbild"
                       className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
                     />
                   ) : (
                     friend.initials

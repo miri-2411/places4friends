@@ -7,6 +7,7 @@ import AuthGate from "@/components/auth/AuthGate";
 import { createClient } from "@/lib/supabase/client";
 import { formatTimestamp, getUserColorClass } from "@/lib/auth/placeFormatting";
 import { buildActivityCountMap } from "@/lib/activityCounts";
+import { getAvatarUrl } from "@/lib/avatar";
 
 import { ActivityCardSkeleton, ActivitiesSkeleton } from "@/components/ui/Skeleton";
 
@@ -89,9 +90,7 @@ function ActivitiesContent({ user }: { user: User }) {
                 .slice(0, 2)
                 .join("")
                 .toUpperCase() || "?";
-            const avatarUrl = friend?.avatar_url
-              ? `${supabase.storage.from("avatars").getPublicUrl(friend.avatar_url).data.publicUrl}?t=${Date.now()}`
-              : null;
+            const avatarUrl = getAvatarUrl(friend?.avatar_url, true);
 
             return {
               id: act.id,

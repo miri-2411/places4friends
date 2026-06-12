@@ -12,6 +12,7 @@ import ActivityCard from "./ActivityCard";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { buildActivityCountMap } from "@/lib/activityCounts";
 import LegalFooter from "./LegalFooter";
+import { getAvatarUrl } from "@/lib/avatar";
 
 interface User {
   id: string;
@@ -201,8 +202,7 @@ export default function ProfileView({
       if (current && current.startsWith("blob:")) {
         return current;
       }
-      const { data } = supabase.storage.from("avatars").getPublicUrl(avatarPath);
-      return `${data.publicUrl}?t=${Date.now()}`;
+      return getAvatarUrl(avatarPath, true);
     });
   }, [avatarPath]);
 
@@ -507,11 +507,7 @@ export default function ProfileView({
           .join("")
           .toUpperCase() || "?";
 
-        let avatarUrl: string | null = null;
-        if (profile?.avatar_url) {
-          const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(profile.avatar_url);
-          avatarUrl = urlData?.publicUrl ?? null;
-        }
+        const avatarUrl = getAvatarUrl(profile?.avatar_url);
 
         const comment: ActivityComment = {
           id: row.id,
@@ -798,11 +794,7 @@ export default function ProfileView({
         .join("")
         .toUpperCase() || "?";
 
-      let avatarUrl: string | null = null;
-      if (profile?.avatar_url) {
-        const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(profile.avatar_url);
-        avatarUrl = `${urlData?.publicUrl}?t=${Date.now()}`;
-      }
+      const avatarUrl = getAvatarUrl(profile?.avatar_url, true);
 
       return {
         id: row.id,
@@ -930,6 +922,7 @@ export default function ProfileView({
                         src={comment.userAvatarUrl}
                         alt="Profilbild"
                         className="h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
                       />
                     ) : (
                       comment.userInitials
@@ -1175,6 +1168,7 @@ export default function ProfileView({
                   src={avatarPublicUrl}
                   alt="Profilbild"
                   className="h-full w-full rounded-full object-cover"
+                  referrerPolicy="no-referrer"
                 />
               </div>
             ) : (

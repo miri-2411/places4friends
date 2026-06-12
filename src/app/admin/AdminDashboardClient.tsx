@@ -24,6 +24,7 @@ import { getAdminData, deleteActivityAdmin, deleteInviteLinkAdmin } from "./acti
 import { formatTimestamp, getUserColorClass } from "@/lib/auth/placeFormatting";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import Toast from "@/components/Toast";
+import { getAvatarUrl } from "@/lib/avatar";
 
 type AdminData = Awaited<ReturnType<typeof getAdminData>>;
 type Tab = "overview" | "users" | "activities" | "invites";
@@ -415,9 +416,10 @@ export default function AdminDashboardClient() {
                       <div className="flex items-center gap-3 min-w-0">
                         {user.avatar_url ? (
                           <img
-                            src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${user.avatar_url}`}
+                            src={getAvatarUrl(user.avatar_url) ?? ""}
                             alt={user.full_name}
                             className="h-10 w-10 rounded-full object-cover bg-slate-100 flex-shrink-0"
+                            referrerPolicy="no-referrer"
                           />
                         ) : (
                           <div

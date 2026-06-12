@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { shareFriendInviteLink, createFriendInviteLink } from "@/lib/friendInvite";
+import { getAvatarUrl } from "@/lib/avatar";
 
 
 interface Profile {
@@ -118,9 +119,7 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
   };
 
   const getAvatarPublicUrl = (path?: string | null) => {
-    if (!path) return null;
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    return `${data.publicUrl}?t=${Date.now()}`;
+    return getAvatarUrl(path, true);
   };
 
   // Fetch friendships and classify them
@@ -560,6 +559,7 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
                                   src={friend.avatarUrl}
                                   alt="Profilbild"
                                   className="h-full w-full object-cover"
+                                  referrerPolicy="no-referrer"
                                 />
                               ) : (
                                 getInitials(friend.full_name, friend.username)
@@ -666,6 +666,7 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
                                     src={req.avatarUrl}
                                     alt="Profilbild"
                                     className="h-full w-full object-cover"
+                                    referrerPolicy="no-referrer"
                                   />
                                 ) : (
                                   getInitials(req.full_name, req.username)
@@ -742,6 +743,7 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
                                     src={req.avatarUrl}
                                     alt="Profilbild"
                                     className="h-full w-full object-cover"
+                                    referrerPolicy="no-referrer"
                                   />
                                 ) : (
                                   getInitials(req.full_name, req.username)
@@ -878,6 +880,7 @@ export default function FriendsView({ currentUser }: FriendsViewProps) {
                                   src={profile.avatarUrl}
                                   alt="Profilbild"
                                   className="h-full w-full object-cover"
+                                  referrerPolicy="no-referrer"
                                 />
                               ) : (
                                 getInitials(profile.full_name, profile.username)
