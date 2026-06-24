@@ -2,14 +2,12 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Mail, Lock, User, AtSign, ArrowRight, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getSignupErrorMessage } from "@/lib/authErrors";
 import { sendVerificationEmailAction } from "@/app/login/actions";
 
 export default function RegisterForm() {
-  const router = useRouter();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -124,8 +122,11 @@ export default function RegisterForm() {
       return;
     }
 
-    router.push("/");
-    router.refresh();
+    // Hard navigation (not router.push): the fire-and-forget verification server
+    // action above can cancel a soft client navigation, leaving the user stuck on
+    // the register page. A full reload also guarantees the new session cookie is
+    // applied to server components.
+    window.location.assign("/");
   };
 
   const handleGoogleRegister = async () => {

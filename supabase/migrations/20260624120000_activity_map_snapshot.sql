@@ -1,0 +1,12 @@
+-- Cached static map snapshot per activity.
+--
+-- The image is rendered by Geoapify (OpenStreetMap / ODbL data, whose terms permit
+-- storing & redistributing the output — unlike Mapbox/Google) and stored in the
+-- public `activity-images` bucket by the `generate-map-snapshot` Edge Function.
+-- It's generated once at recommendation-creation time, so the maps API is hit
+-- roughly once per post instead of on every feed render.
+--
+-- Nullable: older posts (and any where generation failed) fall back to a live
+-- map tile client-side. Existing RLS/grants on `activities` already cover the
+-- new column, so no policy changes are needed.
+ALTER TABLE public.activities ADD COLUMN IF NOT EXISTS map_snapshot_url text;
